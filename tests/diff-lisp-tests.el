@@ -25,7 +25,9 @@
 ;;; Code:
 
 (require 'ert)
+(require 'subr-x)
 (require 'diff-lisp)
+
 
 (defun test-create-v (n m)
   "Create vector from N and M."
@@ -34,10 +36,13 @@
 (defun test-read-file-into-string (file)
   "Read FILE's content into string."
   (let* ((files (directory-files-recursively default-directory file)))
-    (with-temp-buffer
-      (when files
-        (insert-file-contents (car files)))
-      (buffer-string))))
+    (diff-lisp-file-to-string (car files))))
+
+(defun test-strip-diff-header (diff)
+  "Strip DIFF header."
+  (let* ((a (split-string diff "\n")))
+    (setq a (cddr a))
+    (string-trim (mapconcat 'identity a "\n"))))
 
 (defun test-eq (l1 l2)
   "Two list L1 and L2 have same content."
@@ -73,16 +78,23 @@
          (rlt (diff-lisp-myers-find-middle-snake a 0 (length a) b 0 (length b))))
     (should (eq 5 (plist-get rlt :difference)))
     (setq rlt (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b)))
-    (message "basic rlt=%s" rlt)
     (should (eq (length rlt) 4))
     (setq rlt (diff-lisp-myers-do-diff a (length a) b (length b)))
     (should (eq (length rlt) 3))))
 
 (ert-deftest test-compare-files ()
-  (let* ((s1 (test-read-file-into-string "git-send-email-v1.perl"))
-         (s2 (test-read-file-into-string "git-send-email-v2.perl")))
-    (diff-lisp-diff-strings s1 s2)
-    (should t)))
+  (let* ((f1 "git-send-email-v1.perl")
+         (f2 "git-send-email-v2.perl")
+         (fp1 (concat "tests/" f1))
+         (fp2 (concat "tests/" f2))
+         (s1 (test-read-file-into-string f1))
+         (s2 (test-read-file-into-string f2))
+         (output (shell-command-to-string (format "diff -u %s %s" fp1 fp2))))
+    (should (string= (test-strip-diff-header output)
+                     (test-strip-diff-header (diff-lisp-diff-strings s1 s2))))
+
+    (should (string= (test-strip-diff-header (diff-lisp-diff-files fp1 fp2))
+                     (test-strip-diff-header output)))))
 
 (ert-deftest test-b-is-longer-than-a ()
   (let* ((a (string-to-list "abcd"))
@@ -96,4 +108,5 @@
     (should (test-eq (nth 1 rlt) '(3 6 4 7)))))
 
 (ert-run-tests-batch-and-exit)
+;; (ert-run-tests-batch-and-exit "test-compare-files")
 ;;; diff-lisp-tests.el ends here

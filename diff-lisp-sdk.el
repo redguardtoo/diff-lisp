@@ -41,5 +41,15 @@
       (setq i (1+ i)))
     (nreverse rlt)))
 
+(defun diff-lisp-file-to-string (file)
+  "Read FILE into string."
+  (cond
+   ((and file (file-readable-p file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (buffer-string)))
+   (t
+    "")))
+
 (provide 'diff-lisp-sdk)
 ;;; diff-lisp-sdk.el ends here
