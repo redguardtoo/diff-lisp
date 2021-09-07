@@ -108,5 +108,4 @@
     (should (test-eq (nth 1 rlt) '(3 6 4 7)))))
 
 (ert-run-tests-batch-and-exit)
-;; (ert-run-tests-batch-and-exit "test-compare-files")
 ;;; diff-lisp-tests.el ends here

@@ -1,2 +1,2 @@
 * todo
-v should not be re-used.
+- see xdl_hash_record in "git/xutil.c" to hash code line, see https://stackoverflow.com/questions/10696223/reason-for-5381-number-in-djb-hash-function for explanation of algorithm
