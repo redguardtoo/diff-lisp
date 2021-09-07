@@ -1,5 +1,4 @@
-;;; diff-lisp.el --- Create diff in purse lisp -*- lexical-binding: t -*-
-
+;;; diff-lisp.el --- diff files&strings in pure Lisp -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2021 Chen Bin
 ;;
@@ -26,22 +25,17 @@
 
 ;;; Commentary:
 
-;; Run "git help diff" to see summary of four diff algorithms,
-;; default, myers
-;;     The basic greedy diff algorithm. Currently, this is the default.
-
-;; minimal
-;;     Spend extra time to make sure the smallest possible diff is produced.
-
-;; patience
-;;     Use "patience diff" algorithm when generating patches.
-
-;; histogram
-;;     This algorithm extends the patience algorithm to "support
-;;     low-occurrence common elements".
-;; @see xdl_change_compact in xdiffi.c from git for pretty diff output
-;; @see xdl_emit_diff, it print out hunks, it's assigned to "ef" in xdl_diff
-;; in gdb, use "run --no-pager diff --no-index --diff-algorithm=myers ~/projs/diff-lisp/tests/v1.txt ~/projs/diff-lisp/tests/v2.txt" to debug git diff
+;; Usage,
+;;   - Select a region and run the command `diff-lisp-mark-selected-text-as-a'.
+;;   - Select another region and run `diff-lisp-diff-a-and-b'.
+;;   - The difference of two region is displayed in a buffer.
+;;
+;; API `diff-lisp-diff-strings' and `diff-lisp-diff-files' are provided.
+;;
+;; The diff algorithm is written in pure Lisp.
+;; See "An O(ND) Difference Algorithm and its Variations", by Eugene Myers.
+;;
+;; Histogram will be supported soon.
 
 ;;; Code:
 (require 'files)
@@ -234,9 +228,6 @@ Similar to xdl_emit_diff in git."
          (s2 (diff-lisp-file-to-string f2)))
     (diff-lisp-diff-strings s1 s2 (format "--- %s\n+++ %s\n" f1 f2))))
 
-;; Step 1: Select a region and run `diff-lisp-mark-selected-text-as-a'
-;; Step 2: Select another region and `diff-lisp-diff-a-and-b'
-;; Press "q" in evil-mode or "C-c C-c" to exit the diff output buffer
 (defun diff-lisp-format-region-boundary (b e)
   "Make sure lines are selected and B is less than E."
   (if (> b e) (cl-rotatef b e))

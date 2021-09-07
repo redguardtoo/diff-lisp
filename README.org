@@ -1,2 +1,26 @@
-* todo
-- see xdl_hash_record in "git/xutil.c" to hash code line, see https://stackoverflow.com/questions/10696223/reason-for-5381-number-in-djb-hash-function for explanation of algorithm
+* diff-lisp
+
+[[https://github.com/redguardtoo/diff-lisp/actions/workflows/test.yml][https://github.com/redguardtoo/diff-lisp/actions/workflows/test.yml/badge.svg]]
+
+Diff files&strings in pure Lisp.
+
+* Install
+Place files under [[https://www.emacswiki.org/emacs/LoadPath][Load Path]]. Then add =(require 'diff-lisp)= to your configuration.
+
+* Set up
+Nothing to set up.
+
+* Usage
+- Select a region and run the command =diff-lisp-mark-selected-text-as-a=.
+- Select another region and run =diff-lisp-diff-a-and-b=.
+- The difference of two region is displayed in a buffer.
+
+* Tips
+API =diff-lisp-diff-strings= and =diff-lisp-diff-files= are provided.
+* Contact me
+Report bugs at [[https://github.com/redguardtoo/diff-lisp]].
+
+* License
+This program is free software: you can redistribute it and/or modify it under the terms of the [[file:LICENSE][GNU General Public License]] as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [[file:LICENSE][GNU General Public License]] for more details.
