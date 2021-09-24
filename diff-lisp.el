@@ -113,10 +113,16 @@ Numbers are zero-originated in the hunk."
 
     rlt))
 
-(defun diff-lisp-change-compact (hunks a b)
-  "Compact HUNKS of A and B.
+(defmacro diff-lisp-change-compact (xe changes a b)
+  "Compact CHANGES of A and B.
 Similar to xdl_change_compact in git."
-  hunks)
+  `(let* (ga gb)
+     (message "changes=%s a=%s b=%s" ,changes ,a ,b)))
+
+(defmacro diff-lisp-build-script (xe)
+  "Collects groups of changes and creates an edit script."
+  `(let* (i1 i2 l1 l2)
+    ))
 
 (defun diff-lisp-emit-diff (change-list a b &optional diff-header)
   "Output CHANGE-LIST between A and B.  DIFF-HEADER is output at the beginning.
@@ -195,6 +201,7 @@ Similar to xdl_emit_diff in git."
          hunk
          hunk-list
          changes
+         xe
          (i 0))
 
     (while (< i hunks-length)
@@ -222,9 +229,12 @@ Similar to xdl_emit_diff in git."
                       (list hunk))
                 changes))))
       (setq i (1+ i)))
+    (setq changes (nreverse changes))
 
     ;; compact changes
-    (setq changes (diff-lisp-change-compact (nreverse changes) a b))
+    ;; (when (and (diff-lisp-change-compact xe changes a b)
+    ;;            (diff-lisp-change-compact xe changes a b)
+    ;;            (diff-lisp-build-script xe)))
 
     ;; output all changes
     (diff-lisp-emit-diff changes a b diff-header)))
