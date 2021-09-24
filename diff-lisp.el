@@ -36,6 +36,14 @@
 ;; See "An O(ND) Difference Algorithm and its Variations", by Eugene Myers.
 ;;
 ;; Histogram will be supported soon.
+;; @see 433860f3d0beb0c6f205290bd16cda413148f098 in git log
+;; @see get_indent in git. The TAB equals 8 spaces.
+;; @see  struct split_measurement for split score
+;; @see xdl_prepare_ctx, below code,
+;;   if (!(rchg = (char *) xdl_malloc((nrec + 2) * sizeof(char))))
+;;   	goto abort;
+;;   memset(rchg, 0, (nrec + 2) * sizeof(char));
+;; then go back xdl_change_compact
 
 ;;; Code:
 (require 'files)
