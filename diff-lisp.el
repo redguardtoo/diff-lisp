@@ -113,11 +113,39 @@ Numbers are zero-originated in the hunk."
 
     rlt))
 
-(defmacro diff-lisp-change-compact (xe changes a b)
-  "Compact CHANGES of A and B.
+(defun diff-lisp-group-init (rchg)
+  (let ((start 0)
+         (end 0))
+     (while (aref rchg end)
+       (setq end (1+ end)))
+     (cons start end)))
+
+(defmacro diff-lisp-change-compact (hunks a b)
+  "Compact HUNKS of A and B.
 Similar to xdl_change_compact in git."
-  `(let* (ga gb)
-     (message "changes=%s a=%s b=%s" ,changes ,a ,b)))
+  `(let* ((rchg-a (make-vector (length ,a) nil))
+          (rchg-b (make-vector (length ,b) nil))
+          group-a
+          group-b)
+
+     (dolist (h hunks)
+       (let (i e)
+         (message "====h=%s" h)
+         (setq i (nth 0 h))
+         (setq e (nth 2 h))
+         (while (< i e)
+           (aset rchg-a i t)
+           (setq i (1+ i)))
+
+         (setq i (nth 1 h))
+         (setq e (nth 3 h))
+         (while (< i e)
+           (aset rchg-b i t)
+           (setq i (1+ i)))))
+     (setq group-a (diff-lisp-group-init rchg-a))
+     (setq group-b (diff-lisp-group-init rchg-b))
+     (message "rchg-a=%s rchg-b=%s group-a=%s group-b=%s" rchg-a rchg-b group-a group-b)
+     (message "changes=%s a=%s b=%s" ,hunks (length ,a) (length ,b))))
 
 (defmacro diff-lisp-build-script (xe)
   "Collects groups of changes and creates an edit script."
@@ -203,6 +231,7 @@ Similar to xdl_emit_diff in git."
          changes
          xe
          (i 0))
+    (message "=====hunks=%s" hunks)
 
     (while (< i hunks-length)
       (setq hunk (nth i hunks))
@@ -232,9 +261,9 @@ Similar to xdl_emit_diff in git."
     (setq changes (nreverse changes))
 
     ;; compact changes
-    ;; (when (and (diff-lisp-change-compact xe changes a b)
-    ;;            (diff-lisp-change-compact xe changes a b)
-    ;;            (diff-lisp-build-script xe)))
+    (when (and (diff-lisp-change-compact hunks a b)
+               (diff-lisp-change-compact hunks a b)
+               (diff-lisp-build-script xe)))
 
     ;; output all changes
     (diff-lisp-emit-diff changes a b diff-header)))
