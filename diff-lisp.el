@@ -120,13 +120,25 @@ Numbers are zero-originated in the hunk."
        (setq end (1+ end)))
      (cons start end)))
 
+(defmacro diff-lisp-group-next (group rchg)
+  `(let (rlt)
+     (cond
+      ((>= (cdr ,group) (length ,rchg))
+       (setq rlt nil))
+      (t
+       ;; todo
+       (message "default")))
+
+     rlt))
+
 (defmacro diff-lisp-change-compact (hunks a b)
   "Compact HUNKS of A and B.
 Similar to xdl_change_compact in git."
   `(let* ((rchg-a (make-vector (length ,a) nil))
           (rchg-b (make-vector (length ,b) nil))
           group-a
-          group-b)
+          group-b
+          (next-group-p t))
 
      (dolist (h hunks)
        (let (i e)
@@ -142,8 +154,21 @@ Similar to xdl_change_compact in git."
          (while (< i e)
            (aset rchg-b i t)
            (setq i (1+ i)))))
+
      (setq group-a (diff-lisp-group-init rchg-a))
      (setq group-b (diff-lisp-group-init rchg-b))
+
+     (while next-group-p
+       (cond
+        ((eq (car group-a) (cdr group-b))
+         ;; do nothing
+         (when (setq next-group-p (diff-lisp-group-next group-a rchg-a))
+           (diff-lisp-group-next group-b rchg-b)))
+
+        (t
+         (message "default")))
+
+       (setq next-group-p nil))
      (message "rchg-a=%s rchg-b=%s group-a=%s group-b=%s" rchg-a rchg-b group-a group-b)
      (message "changes=%s a=%s b=%s" ,hunks (length ,a) (length ,b))))
 
