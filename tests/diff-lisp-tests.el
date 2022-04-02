@@ -107,5 +107,11 @@
     (should (test-eq (nth 0 rlt) '(0 0 3 3)))
     (should (test-eq (nth 1 rlt) '(3 6 4 7)))))
 
+(ert-deftest test-no-difference ()
+  (let* ((a (string-to-list "abcd"))
+         (rlt (diff-lisp-myers-do-diff a  (length a) a (length a))))
+    (should (eq (length rlt) 1))
+    (should (test-eq (nth 0 rlt) (list 0 0 (length a) (length a))))))
+
 (ert-run-tests-batch-and-exit)
 ;;; diff-lisp-tests.el ends here
