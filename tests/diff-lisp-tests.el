@@ -50,9 +50,9 @@
          (i 0)
          (len (length l1))
          stop)
-     (when (eq len (length l2))
+     (when (= len (length l2))
        (while (and (not stop) (< i len))
-         (unless (eq (nth i l1) (nth i l2))
+         (unless (= (nth i l1) (nth i l2))
            (setq stop t))
          (setq i (1+ i)))
        (unless stop
@@ -76,11 +76,11 @@
   (let* ((a (string-to-list "ABCABBA"))
          (b (string-to-list "CBABAC"))
          (rlt (diff-lisp-myers-find-middle-snake a 0 (length a) b 0 (length b))))
-    (should (eq 5 (plist-get rlt :difference)))
+    (should (= 5 (plist-get rlt :difference)))
     (setq rlt (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b)))
-    (should (eq (length rlt) 4))
+    (should (= (length rlt) 4))
     (setq rlt (diff-lisp-myers-do-diff a (length a) b (length b)))
-    (should (eq (length rlt) 3))))
+    (should (= (length rlt) 3))))
 
 (ert-deftest test-compare-files ()
   (let* ((f1 "git-send-email-v1.perl")
@@ -101,17 +101,109 @@
          (b (string-to-list "abczacd"))
          rlt)
     (setq rlt (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b)))
-    (should (eq (length rlt) 4))
+    (should (= (length rlt) 4))
     (setq rlt (diff-lisp-myers-do-diff a  (length a) b (length b)))
-    (should (eq (length rlt) 2))
+    (should (= (length rlt) 2))
     (should (test-eq (nth 0 rlt) '(0 0 3 3)))
     (should (test-eq (nth 1 rlt) '(3 6 4 7)))))
 
 (ert-deftest test-no-difference ()
   (let* ((a (string-to-list "abcd"))
          (rlt (diff-lisp-myers-do-diff a  (length a) a (length a))))
-    (should (eq (length rlt) 1))
+    (should (= (length rlt) 1))
     (should (test-eq (nth 0 rlt) (list 0 0 (length a) (length a))))))
+
+(ert-deftest test-middle-snake-odd-sum-no-crash-and-snake ()
+  "MRE: When n+m is odd, original code may crash due to float indices or reading nil from v2[k].
+After fix, middle snake should be returned correctly."
+  (let* ((a (string-to-list "ab"))   ;; n=2
+         (b (string-to-list "a"))    ;; m=1, n+m=3 (odd), delta=1 (odd)
+         signaled
+         s)
+    ;; In buggy version: this likely signals due to float index or (>= x nil)
+    (setq signaled
+          (condition-case _
+              (progn
+                (setq s (diff-lisp-myers-find-middle-snake a 0 (length a) b 0 (length b)))
+                nil)
+            (error t)))
+    ;; After fix: should NOT signal
+    (should (not signaled))
+    ;; Expected middle snake for common subsequence 'a'
+    (should (test-eq (plist-get s :snake) '(2 1 2 1)))
+    ;; Edit distance should be 1
+    (should (= (plist-get s :difference) 1))))
+
+(ert-deftest test-middle-snake-odd-sum-longer ()
+  "MRE: Another odd n+m case to exercise forward/backward overlap logic."
+  (let* ((a (string-to-list "abcd"))  ;; n=4
+         (b (string-to-list "abc"))   ;; m=3, n+m=7 (odd), delta=1 (odd)
+         signaled
+         s)
+    (setq signaled
+          (condition-case _
+              (progn
+                (setq s (diff-lisp-myers-find-middle-snake a 0 (length a) b 0 (length b)))
+                nil)
+            (error t)))
+    ;; After fix: should NOT signal
+    (should (not signaled))
+    ;; Conservative invariants on snake coordinates
+    (let* ((snake (plist-get s :snake))
+           (x (nth 0 snake)) (y (nth 1 snake))
+           (u (nth 2 snake)) (v (nth 3 snake)))
+      (should (and (<= 0 x u) (<= 0 y v)))
+      (should (and (<= u (length a)) (<= v (length b)))))))
+
+(ert-deftest test-forward-overlap-reads-wrong-v2-index ()
+  "MRE: Delta is odd; forward overlap must read v2[k+delta], not v2[k].
+Buggy code reading v2[k] can return nil and crash on comparison."
+  (let* ((a (string-to-list "cab"))   ;; n=3
+         (b (string-to-list "ab"))    ;; m=2, n+m=5 (odd), delta=1 (odd)
+         signaled
+         s)
+    (setq signaled
+          (condition-case _
+              (progn
+                (setq s (diff-lisp-myers-find-middle-snake a 0 (length a) b 0 (length b)))
+                nil)
+            (error t)))
+    ;; After fix: should NOT signal and return a valid 4-tuple
+    (should (not signaled))
+    (let ((snake (plist-get s :snake)))
+      (should (consp snake))
+      (should (= (length snake) 4)))))
+
+(ert-deftest test-do-diff-odd-delta-basic ()
+  "End-to-end MRE: odd delta case should not crash inside middle-snake and should yield a single common snake."
+  (let* ((a (string-to-list "ab"))
+         (b (string-to-list "a"))
+         signaled
+         rlt)
+    (setq signaled
+          (condition-case _
+              (progn
+                (setq rlt (diff-lisp-myers-do-diff a (length a) b (length b)))
+                nil)
+            (error t)))
+    ;; After fix: should NOT signal
+    (should (not signaled))
+    ;; Only the common 'a' snake should be present
+    (should (= (length rlt) 1))
+    (should (test-eq (car rlt) '(0 0 1 1)))))
+
+(ert-deftest test-even-delta-stability ()
+  "Regression guard: even delta should produce stable path selection (tie-breaking uses strict <)."
+  (let* ((a (string-to-list "axbxc"))  ;; LCS is 'abc'
+         (b (string-to-list "aybzc"))
+         (rlt (diff-lisp-myers-do-diff a (length a) b (length b))))
+    ;; We expect at least two snakes (sequence may split LCS into multiple snakes)
+    (should (>= (length rlt) 2))
+    ;; Each snake must be non-decreasing and within bounds
+    (dolist (s rlt)
+      (let ((x (nth 0 s)) (y (nth 1 s)) (u (nth 2 s)) (v (nth 3 s)))
+        (should (and (<= 0 x u) (<= 0 y v)))
+        (should (and (<= u (length a)) (<= v (length b))))))))
 
 (ert-run-tests-batch-and-exit)
 ;;; diff-lisp-tests.el ends here

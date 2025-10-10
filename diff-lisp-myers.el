@@ -25,6 +25,10 @@
 
 (defun diff-lisp-myers-get-v (v index offset)
   "Get V's element at INDEX offset by OFFSET."
+  ;; (message "v=%s" v)
+  ;; (message "index=%s" index)
+  ;; (message "offset=%s" offset)
+  ;; (message "rlt=%s" (aref v (+ index offset)))
   (aref v (+ index offset)))
 
 (defun diff-lisp-myers-set-v (v index offset value)
@@ -40,9 +44,9 @@ Second sequence is subsequence of B, which starts from B-START with length M."
          (delta-odd-p (cl-oddp delta))
          (max-d (floor (+ n m) 2))
          ;; forward D-path
-         (v1 (make-vector (+ n m 1) nil))
+         (v1 (make-vector (+ n m 1) -1))
          ;; reverse D-path.
-         (v2 (make-vector (+ n m 1) nil))
+         (v2 (make-vector (+ n m 1) -1))
          (v1-offset (floor (+ n m) 2))
          (v2-offset (- v1-offset delta))
          path-found
@@ -91,7 +95,6 @@ Second sequence is subsequence of B, which starts from B-START with length M."
           (setq y (1+ y)))
 
         (diff-lisp-myers-set-v v1 k v1-offset x)
-
 
         (when (and delta-odd-p
                    (>= k (- delta (1- d)))
