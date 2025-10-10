@@ -38,12 +38,12 @@ Second sequence is subsequence of B, which starts from B-START with length M."
   (let* (rlt
          (delta (- n m))
          (delta-odd-p (cl-oddp delta))
-         (max-d (/ (+ n m) 2))
+         (max-d (floor (+ n m) 2))
          ;; forward D-path
          (v1 (make-vector (+ n m 1) nil))
          ;; reverse D-path.
          (v2 (make-vector (+ n m 1) nil))
-         (v1-offset (/ (+ n m) 2))
+         (v1-offset (floor (+ n m) 2))
          (v2-offset (- v1-offset delta))
          path-found
          last-forward-snake-x
