@@ -102,9 +102,8 @@ Second sequence is subsequence of B, which starts from B-START with length M."
             (setq path-found t)
             (setq last-snake (list last-forward-snake-x last-forward-snake-y x y))
             ;; TODO, the last snake of the forward path is the middle snake
-            (let* ((u (diff-lisp-myers-get-v v2 k v2-offset)))
-              (setq rlt (list :difference (+ d d -1)
-                              :snake last-snake)))))
+            (setq rlt (list :difference (+ d d -1)
+                            :snake last-snake))))
 
         (setq k (+ k 2)))
 
@@ -147,9 +146,8 @@ Second sequence is subsequence of B, which starts from B-START with length M."
             (setq path-found t)
             (setq last-snake (list x y last-backward-snake-x last-backward-snake-y))
             ;; the last snake of the reverse path is the middle snake
-            (let* ((u (diff-lisp-myers-get-v v1 inverse-k v1-offset)))
-              (setq rlt (list :difference (+ d d)
-                              :snake last-snake)))))
+            (setq rlt (list :difference (+ d d)
+                            :snake last-snake))))
 
         ;; If the path overlaps the furthest reaching forward D-path in diagonal inverse-k?
         (setq k (+ k 2)))
