@@ -68,8 +68,8 @@ Second sequence is subsequence of B, which starts from B-START with length M."
       (setq k (- d))
       (while (and (not path-found) (<= k d))
         (cond
-         ((or (eq k (- d))
-              (and (not (eq k d))
+         ((or (= k (- d))
+              (and (/= k d)
                    (< (diff-lisp-myers-get-v v1 (1- k) v1-offset)
                       (diff-lisp-myers-get-v v1 (1+ k) v1-offset))))
           ;; move down from D-path in above diagonal
@@ -113,8 +113,8 @@ Second sequence is subsequence of B, which starts from B-START with length M."
       (while (and (not path-found) (<= k d))
         (setq inverse-k (+ k delta))
         (cond
-         ((or (eq inverse-k (- delta d))
-              (and (not (eq inverse-k (+ delta d)))
+         ((or (= inverse-k (- delta d))
+              (and (/= inverse-k (+ delta d))
                    (<= (diff-lisp-myers-get-v v2 (1+ inverse-k) v2-offset)
                        (diff-lisp-myers-get-v v2 (1- inverse-k) v2-offset))))
           ;; move left from D-path in above diagonal
@@ -195,7 +195,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
         ;;  x---x---x    x---x---x
         ;; In Case 1, right bottom corner is returned as the middle snake.
         (cond
-         ((and (eq x u) (eq y v))
+         ((and (= x u) (= y v))
           (push (list a-start b-start (+ n a-start) (+ n b-start)) all-snakes))
          (t
           (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))
@@ -210,7 +210,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
         ;;  x---x---x---x     x---x---x---x
         ;; In Case 1, right bottom corner is returned as the middle snake.
         (cond
-         ((and (eq x u) (eq y v))
+         ((and (= x u) (= y v))
           (push (list a-start b-start (+ m a-start) (+ m b-start)) all-snakes))
          (t
           (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))))
@@ -224,8 +224,8 @@ Second sequence is subsequence of B, which starts from B-START with length M."
     (setq all-snakes (cl-delete-if (lambda (snake)
                                      ;; snake is (x, y, u, v)
                                      ;; x,y is the snake start point, u, v is the end point
-                                     (and (eq (nth 0 snake) (nth 2 snake))
-                                          (eq (nth 1 snake) (nth 3 snake))))
+                                     (and (= (nth 0 snake) (nth 2 snake))
+                                          (= (nth 1 snake) (nth 3 snake))))
                                    all-snakes))
 
     (cl-sort all-snakes (lambda (s1 s2) (< (car s1) (car s2))))))
