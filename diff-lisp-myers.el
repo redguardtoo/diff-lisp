@@ -17,19 +17,19 @@
 
 ;;; Commentary:
 
-;; 
+;;
 
 ;;; Code:
 
 (require 'diff-lisp-sdk)
 
-(defmacro diff-lisp-myers-get-v (v index offset)
+(defun diff-lisp-myers-get-v (v index offset)
   "Get V's element at INDEX offset by OFFSET."
-  `(aref ,v (+ ,index ,offset)))
+  (aref v (+ index offset)))
 
-(defmacro diff-lisp-myers-set-v (v index offset value)
+(defun diff-lisp-myers-set-v (v index offset value)
   "Set V's element at INDEX offset by OFFSET to VALUE."
-  `(aset ,v (+ ,index ,offset) ,value))
+  (aset v (+ index offset) value))
 
 (defun diff-lisp-myers-find-middle-snake (a a-start n b b-start m)
   "Find middle snake of two sequences.
@@ -102,7 +102,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
             (setq path-found t)
             (setq last-snake (list last-forward-snake-x last-forward-snake-y x y))
             ;; TODO, the last snake of the forward path is the middle snake
-            (let ((u (diff-lisp-myers-get-v v2 k v2-offset)))
+            (let* ((u (diff-lisp-myers-get-v v2 k v2-offset)))
               (setq rlt (list :difference (+ d d -1)
                               :snake last-snake)))))
 
@@ -147,7 +147,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
             (setq path-found t)
             (setq last-snake (list x y last-backward-snake-x last-backward-snake-y))
             ;; the last snake of the reverse path is the middle snake
-            (let ((u (diff-lisp-myers-get-v v1 inverse-k v1-offset)))
+            (let* ((u (diff-lisp-myers-get-v v1 inverse-k v1-offset)))
               (setq rlt (list :difference (+ d d)
                               :snake last-snake)))))
 
@@ -165,7 +165,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
   (when diff-lisp-debug
       (message "diff-lisp-myers-find-all-snakes called => %s %s %s %s" a-start n b-start m))
 
-  (let (all-snakes d snake x y u v s1 s2 middle-snake)
+  (let* (all-snakes d snake x y u v s1 s2 middle-snake)
     (when (and (> n 0) (> m 0))
       ;; Use a-start and b-start is to avoid copy sequences.
       (setq middle-snake (diff-lisp-myers-find-middle-snake a a-start n b b-start m))
