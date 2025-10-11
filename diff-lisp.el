@@ -1,12 +1,12 @@
 ;;; diff-lisp.el --- diff files&strings in pure Lisp -*- lexical-binding: t -*-
 
-;; Copyright (C) 2021 Chen Bin
+;; Copyright (C) 2021-2025 Chen Bin
 ;;
-;; Version: 0.0.1
+;; Version: 0.1.0
 ;; Keywords: convenience patch diff vc
 ;; Author: Chen Bin <chenbin DOT sh AT gmail DOT com>
 ;; URL: https://github.com/redguardtoo/diff-lisp
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((emacs "27.1"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -98,69 +98,70 @@ Numbers are zero-originated in the hunk."
 (defun diff-lisp-change-compact (hunks a b)
   "Compact HUNKS of A and B.
 Similar to xdl_change_compact in git."
+  ;; TODO
   hunks)
 
-(defun diff-lisp-emit-diff (change-list a b &optional diff-header)
-  "Output CHANGE-LIST between A and B.  DIFF-HEADER is output at the beginning.
+(defun diff-lisp-emit-diff (all-changes a b &optional diff-header)
+  "Output ALL-CHANGES between A and B.  DIFF-HEADER is output at the beginning.
 Similar to xdl_emit_diff in git."
-  (let* ((a-vec (if (vectorp a) a (vconcat a)))
-         (b-vec (if (vectorp b) b (vconcat b))))
-    (with-output-to-string
-      (when change-list
-        (princ (or diff-header (format "--- a\n+++ b\n"))))
+  (with-output-to-string
+    (when all-changes
+      (princ (or diff-header (format "--- a\n+++ b\n"))))
 
-      (dolist (change change-list)
-        (pcase-let ((`(,x1 ,y1 ,x2 ,y2 ,hunk-list) change))
-          ;; hunk header
-          (princ (format "@@ -%s,%s +%s,%s @@\n"
-                         (1+ x1) (- x2 x1)
-                         (1+ y1) (- y2 y1)))
+    (dolist (change all-changes)
+      (pcase-let ((`(,x1 ,y1 ,x2 ,y2 ,hunks) change))
+        ;; hunk header
+        (princ (format "@@ -%s,%s +%s,%s @@\n"
+                       (1+ x1) (- x2 x1)
+                       (1+ y1) (- y2 y1)))
 
-          ;; push dummya and reverse
-          (setq hunk-list (nreverse (cons (list x2 y2 x2 y2) hunk-list)))
+        ;; push dummy data and reverse
+        (setq hunks (nreverse (cons (list x2 y2 x2 y2) hunks)))
 
-          ;; output every hunk
-          (let ((context-start x1)
-                context-end i)
-            (dolist (hunk hunk-list)
-              (pcase-let ((`(,hx1 ,hy1 ,hx2 ,hy2) hunk))
-                ;; output hunk's context
-                (setq i context-start
-                      context-end hx1)
-                (while (< i context-end)
-                  (princ " ")
-                  (princ (aref a-vec i))
-                  (princ "\n")
-                  (setq i (1+ i)))
-                (setq context-start hx2)
+        ;; output every hunk
+        (let ((context-start x1)
+              context-end i)
+          (dolist (hunk hunks)
+            (pcase-let ((`(,hx1 ,hy1 ,hx2 ,hy2) hunk))
+              ;; output hunk's context
+              (setq i context-start
+                    context-end hx1)
+              (while (< i context-end)
+                (princ " ")
+                (princ (aref a i))
+                (princ "\n")
+                (setq i (1+ i)))
+              (setq context-start hx2)
 
-                ;; output "DELETE" segments from a
-                (setq i hx1)
-                (while (< i hx2)
-                  (princ "-")
-                  (princ (aref a-vec i))
-                  (princ "\n")
-                  (setq i (1+ i)))
+              ;; output "DELETE" segments from a
+              (setq i hx1)
+              (while (< i hx2)
+                (princ "-")
+                (princ (aref a i))
+                (princ "\n")
+                (setq i (1+ i)))
 
-                ;; output "INSERT" segments from a
-                (setq i hy1)
-                (while (< i hy2)
-                  (princ "+")
-                  (princ (aref b-vec i))
-                  (princ "\n")
-                  (setq i (1+ i)))))))))))
+              ;; output "INSERT" segments from a
+              (setq i hy1)
+              (while (< i hy2)
+                (princ "+")
+                (princ (aref b i))
+                (princ "\n")
+                (setq i (1+ i))))))))))
 
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
   "Diff string S1 and string S2.  DIFF-HEADER is output at the beginning."
-  (let* ((a (split-string s1 "\n"))
-         (b (split-string s2 "\n"))
-         (a-hash-list (diff-lisp-lines-to-hash-list a))
-         (b-hash-list (diff-lisp-lines-to-hash-list b))
+  (let* ((a (vconcat (split-string s1 "\n")))
+         (b (vconcat (split-string s2 "\n")))
          (a-length (length a))
          (b-length (length b))
-         (snakes (diff-lisp-myers-do-diff a-hash-list a-length b-hash-list b-length))
+         (snakes (diff-lisp-myers-do-diff (diff-lisp-line-to-hash a)
+                                          a-length
+                                          (diff-lisp-line-to-hash b)
+                                          b-length))
          recent-change
+         hunk-list
          changes)
 
     (dolist (hunk (diff-lisp-snakes-to-hunks snakes a-length b-length))
@@ -172,13 +173,15 @@ Similar to xdl_emit_diff in git."
         (setq y2 (+ y2 diff-lisp-output-unified-context))
 
         (cond
-         ((setq recent-change (car changes))
+         ((setq recent-change (nth 0 changes))
           ;; If the hunk overlaps with latest change, merge it into the change
-          (when (or (<= x1 (nth 2 recent-change)) (<= y1 (nth 3 recent-change)))
-            (let ((cell4 (nthcdr 4 recent-change)))
-              (setcar (nthcdr 2 recent-change) (min x2 a-length))
-              (setcar (nthcdr 3 recent-change) (min y2 b-length))
-              (setcar cell4 (cons hunk (car cell4))))))
+          (when (or (<= x1 (nth 2 recent-change))
+                    (<= y1 (nth 3 recent-change)))
+            (setf (nth 2 (nth 0 changes)) (min x2 a-length))
+            (setf (nth 3 (nth 0 changes)) (min y2 b-length))
+            (setq hunk-list (nth 4 recent-change))
+            (push hunk hunk-list)
+            (setf (nth 4 (nth 0 changes)) hunk-list)))
 
          (t
           (push (list (max x1 0)

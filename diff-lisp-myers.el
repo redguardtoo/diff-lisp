@@ -35,6 +35,10 @@
   "Set V's element at INDEX offset by OFFSET to VALUE."
   (aset v (+ index offset) value))
 
+(defsubst diff-lisp-create-snake (difference x y u v)
+  "Create a snake using DIFFERENCE X Y U V."
+  (list x y u v difference))
+
 (defun diff-lisp-myers-find-middle-snake (a a-start n b b-start m)
   "Find middle snake of two sequences.
 First sequence is subsequence of A, which starts from A-START with length N.
@@ -55,7 +59,6 @@ Second sequence is subsequence of B, which starts from B-START with length M."
          last-forward-snake-y
          last-backward-snake-x
          last-backward-snake-y
-         last-snake
          d
          k
          inverse-k ; k+delta
@@ -65,7 +68,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
     ;; initialize start point of the first forward D-path: x = 0, y = 1
     (diff-lisp-myers-set-v v1 1 v1-offset 0)
     ;; initialize start point of the first reverse D-path: x = n+1, y = m
-    (diff-lisp-myers-set-v v2 (+ 1 delta) v2-offset (1+ n))
+    (diff-lisp-myers-set-v v2 (1+ delta) v2-offset (1+ n))
 
     (setq d 0)
     (while (and (not path-found) (<= d max-d))
@@ -104,10 +107,12 @@ Second sequence is subsequence of B, which starts from B-START with length M."
           ;; Right now the reverse (D-1)-path are stored in v2.
           (when (>= x (diff-lisp-myers-get-v v2 k v2-offset))
             (setq path-found t)
-            (setq last-snake (list last-forward-snake-x last-forward-snake-y x y))
             ;; TODO, the last snake of the forward path is the middle snake
-            (setq rlt (list :difference (+ d d -1)
-                            :snake last-snake))))
+            (setq rlt (diff-lisp-create-snake (+ d d -1)
+                                              last-forward-snake-x
+                                              last-forward-snake-y
+                                              x
+                                              y))))
 
         (setq k (+ k 2)))
 
@@ -148,10 +153,12 @@ Second sequence is subsequence of B, which starts from B-START with length M."
           ;; Right now the forward D-path are stored in v1.
           (when (<= x (diff-lisp-myers-get-v v1 inverse-k v1-offset))
             (setq path-found t)
-            (setq last-snake (list x y last-backward-snake-x last-backward-snake-y))
             ;; the last snake of the reverse path is the middle snake
-            (setq rlt (list :difference (+ d d)
-                            :snake last-snake))))
+            (setq rlt (diff-lisp-create-snake (+ d d)
+                                              x
+                                              y
+                                              last-backward-snake-x
+                                              last-backward-snake-y))))
 
         ;; If the path overlaps the furthest reaching forward D-path in diagonal inverse-k?
         (setq k (+ k 2)))
@@ -161,7 +168,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
     rlt))
 
 (defun diff-lisp-myers-find-all-snakes (a a-start n b b-start m)
-  "Find all snakes from  two sequences.
+  "Find all snakes from two sequences.
 First sequence is subsequence of A, which starts from A-START with length N.
 Second sequence is subsequence of B, which starts from B-START with length M."
   (when diff-lisp-debug
@@ -169,18 +176,15 @@ Second sequence is subsequence of B, which starts from B-START with length M."
 
   (when (and (> n 0) (> m 0))
     (let* (all-snakes
-           s1 s2
            ;; Use a-start and b-start is to avoid copy sequences.
-           (middle-snake (diff-lisp-myers-find-middle-snake a a-start n b b-start m))
-           (d (plist-get middle-snake :difference))
-           (snake (plist-get middle-snake :snake)))
+           (middle-snake (diff-lisp-myers-find-middle-snake a a-start n b b-start m)))
 
-      (pcase-let ((`(,x ,y ,u ,v) snake))
+      (pcase-let ((`(,x ,y ,u ,v ,d) middle-snake))
         (cond
          ((and d (> d 1))
-          (setq s1 (diff-lisp-myers-find-all-snakes a a-start x b b-start y))
-          (setq s2 (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v)))
-          (setq all-snakes (nconc s1 s2))
+          (setq all-snakes
+                (nconc (diff-lisp-myers-find-all-snakes a a-start x b b-start y)
+                       (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v))))
           (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))
 
          ((> m n)
@@ -223,7 +227,10 @@ Second sequence is subsequence of B, which starts from B-START with length M."
     (and (= x u) (= y v))))
 
 (defun diff-lisp-myers-do-diff (a n b m)
-  "Diff sequence A with length N and sequence B with length M."
+  "Diff sequence A with length N and sequence B with length M.
+Return snakes."
+  ;; returning a list is fine because all calculation is done
+  ;; The list is only used to produce output
   (cl-sort (cl-delete-if #'diff-lisp--empty-snake-p
                          (diff-lisp-myers-find-all-snakes a 0 n b 0 m)) #'< :key #'car))
 
