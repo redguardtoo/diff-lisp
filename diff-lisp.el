@@ -99,6 +99,8 @@ Numbers are zero-originated in the hunk."
   "Compact HUNKS of A and B.
 Similar to xdl_change_compact in git."
   ;; TODO
+  (when diff-lisp-debug
+    (message "hunks=%s a=%s b=%s" hunks a b))
   hunks)
 
 (defun diff-lisp-emit-diff (all-changes a b &optional diff-header)
