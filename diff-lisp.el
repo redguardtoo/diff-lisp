@@ -267,19 +267,17 @@ If no region is selected, `kill-ring' or clipboard is used instead."
 
              ;; text from `kill-ring' or clipboard
              (t
-              (let* ((choice (completing-read "No region is selected. Compare text from: "
-                                              '("kill-ring" "clipboard"))))
-                (cond
-                 ((string= choice "kill-ring")
-                  (car kill-ring))
-
-                 ((and  (string= choice "clipboard")
-                        (functionp diff-lisp-get-clipboard-function))
-                  (funcall diff-lisp-get-clipboard-function))))))))
+              (pcase (completing-read "No region is selected. Compare text from: "
+                                      '("kill-ring" "clipboard"))
+                ("kill-ring"
+                 (car kill-ring))
+                ("clipboard"
+                 (when (functionp diff-lisp-get-clipboard-function)
+                   (funcall diff-lisp-get-clipboard-function))))))))
 
     (when (and a b)
       (cond
-       ((string= (setq diff-output (diff-lisp-diff-strings a b)) "")
+       ((string-empty-p (setq diff-output (diff-lisp-diff-strings a b)))
         (message "Two regions are SAME!"))
 
        (t
