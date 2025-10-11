@@ -23,7 +23,7 @@
 
 (require 'diff-lisp-sdk)
 
-(defun diff-lisp-myers-get-v (v index offset)
+(defsubst diff-lisp-myers-get-v (v index offset)
   "Get V's element at INDEX offset by OFFSET."
   ;; (message "v=%s" v)
   ;; (message "index=%s" index)
@@ -31,7 +31,7 @@
   ;; (message "rlt=%s" (aref v (+ index offset)))
   (aref v (+ index offset)))
 
-(defun diff-lisp-myers-set-v (v index offset value)
+(defsubst diff-lisp-myers-set-v (v index offset value)
   "Set V's element at INDEX offset by OFFSET to VALUE."
   (aset v (+ index offset) value))
 
@@ -41,13 +41,14 @@ First sequence is subsequence of A, which starts from A-START with length N.
 Second sequence is subsequence of B, which starts from B-START with length M."
   (let* (rlt
          (delta (- n m))
+         (sum (+ n m))
          (delta-odd-p (cl-oddp delta))
-         (max-d (floor (+ n m) 2))
+         (max-d (floor sum 2))
          ;; forward D-path
-         (v1 (make-vector (+ n m 1) -1))
+         (v1 (make-vector (+ sum 1) -1))
          ;; reverse D-path.
-         (v2 (make-vector (+ n m 1) -1))
-         (v1-offset (floor (+ n m) 2))
+         (v2 (make-vector (+ sum 1) -1))
+         (v1-offset (floor sum 2))
          (v2-offset (- v1-offset delta))
          path-found
          last-forward-snake-x
@@ -64,7 +65,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
     ;; initialize start point of the first forward D-path: x = 0, y = 1
     (diff-lisp-myers-set-v v1 1 v1-offset 0)
     ;; initialize start point of the first reverse D-path: x = n+1, y = m
-    (diff-lisp-myers-set-v v2 (+ 1 (- n m)) v2-offset (1+ n))
+    (diff-lisp-myers-set-v v2 (+ 1 delta) v2-offset (1+ n))
 
     (setq d 0)
     (while (and (not path-found) (<= d max-d))
@@ -166,70 +167,65 @@ Second sequence is subsequence of B, which starts from B-START with length M."
   (when diff-lisp-debug
       (message "diff-lisp-myers-find-all-snakes called => %s %s %s %s" a-start n b-start m))
 
-  (let* (all-snakes d snake x y u v s1 s2 middle-snake)
-    (when (and (> n 0) (> m 0))
-      ;; Use a-start and b-start is to avoid copy sequences.
-      (setq middle-snake (diff-lisp-myers-find-middle-snake a a-start n b b-start m))
+  (when (and (> n 0) (> m 0))
+    (let* (all-snakes
+           s1 s2
+           ;; Use a-start and b-start is to avoid copy sequences.
+           (middle-snake (diff-lisp-myers-find-middle-snake a a-start n b b-start m))
+           (d (plist-get middle-snake :difference))
+           (snake (plist-get middle-snake :snake)))
 
-      (setq d (plist-get middle-snake :difference))
-      (setq snake (plist-get middle-snake :snake))
-      (setq x (nth 0 snake))
-      (setq y (nth 1 snake))
-      (setq u (nth 2 snake))
-      (setq v (nth 3 snake))
-      (cond
-       ((and d (> d 1))
-        (setq s1 (diff-lisp-myers-find-all-snakes a a-start x b b-start y))
-        (setq s2 (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v)))
-        (setq all-snakes (append s1 s2))
-        (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))
-
-       ((> m n)
-        ;; If d = 1, there are two cases:
-        ;;    Case 1       Case 2
-        ;;  x---x---x    x---x---x
-        ;;  | \ |   |    |   |   |
-        ;;  x---x---x    x---x---x
-        ;;  |   | \ |    | \ |   |
-        ;;  x---x---x    x---x---x
-        ;;  |   |   |    |   | \ |
-        ;;  x---x---x    x---x---x
-        ;; In Case 1, right bottom corner is returned as the middle snake.
+      (pcase-let ((`(,x ,y ,u ,v) snake))
         (cond
-         ((and (= x u) (= y v))
-          (push (list a-start b-start (+ n a-start) (+ n b-start)) all-snakes))
-         (t
-          (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))
+         ((and d (> d 1))
+          (setq s1 (diff-lisp-myers-find-all-snakes a a-start x b b-start y))
+          (setq s2 (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v)))
+          (setq all-snakes (nconc s1 s2))
+          (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))
 
-       (t
-        ;; If d = 1, there are two cases:
-        ;;     Case 1            Case 2
-        ;;  x---x---x---x     x---x---x---x
-        ;;  | \ |   |   |     |   | \ |   |
-        ;;  x---x---x---x     x---x---x---x
-        ;;  |   | \ |   |     |   |   | \ |
-        ;;  x---x---x---x     x---x---x---x
-        ;; In Case 1, right bottom corner is returned as the middle snake.
-        (cond
-         ((and (= x u) (= y v))
-          (push (list a-start b-start (+ m a-start) (+ m b-start)) all-snakes))
-         (t
-          (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))))
+         ((> m n)
+          ;; If d = 1, there are two cases:
+          ;;    Case 1       Case 2
+          ;;  x---x---x    x---x---x
+          ;;  | \ |   |    |   |   |
+          ;;  x---x---x    x---x---x
+          ;;  |   | \ |    | \ |   |
+          ;;  x---x---x    x---x---x
+          ;;  |   |   |    |   | \ |
+          ;;  x---x---x    x---x---x
+          ;; In Case 1, right bottom corner is returned as the middle snake.
+          (cond
+           ((and (= x u) (= y v))
+            (push (list a-start b-start (+ n a-start) (+ n b-start)) all-snakes))
+           (t
+            (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))
 
-    all-snakes))
+         (t
+          ;; If d = 1, there are two cases:
+          ;;     Case 1            Case 2
+          ;;  x---x---x---x     x---x---x---x
+          ;;  | \ |   |   |     |   | \ |   |
+          ;;  x---x---x---x     x---x---x---x
+          ;;  |   | \ |   |     |   |   | \ |
+          ;;  x---x---x---x     x---x---x---x
+          ;; In Case 1, right bottom corner is returned as the middle snake.
+          (cond
+           ((and (= x u) (= y v))
+            (push (list a-start b-start (+ m a-start) (+ m b-start)) all-snakes))
+           (t
+            (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))))
+      all-snakes)))
+
+
+(defsubst diff-lisp--empty-snake-p (snake)
+  "SNAKE start point is x y; end point is u v."
+  (pcase-let ((`(,x ,y ,u ,v) snake))
+    (and (= x u) (= y v))))
 
 (defun diff-lisp-myers-do-diff (a n b m)
   "Diff sequence A with length N and sequence B with length M."
-  (let* ((all-snakes (diff-lisp-myers-find-all-snakes a 0 n b 0 m)))
-
-    (setq all-snakes (cl-delete-if (lambda (snake)
-                                     ;; snake is (x, y, u, v)
-                                     ;; x,y is the snake start point, u, v is the end point
-                                     (and (= (nth 0 snake) (nth 2 snake))
-                                          (= (nth 1 snake) (nth 3 snake))))
-                                   all-snakes))
-
-    (cl-sort all-snakes (lambda (s1 s2) (< (car s1) (car s2))))))
+  (cl-sort (cl-delete-if #'diff-lisp--empty-snake-p
+                         (diff-lisp-myers-find-all-snakes a 0 n b 0 m)) #'< :key #'car))
 
 (provide 'diff-lisp-myers)
 ;;; diff-lisp-myers.el ends here

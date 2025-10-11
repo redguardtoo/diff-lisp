@@ -71,23 +71,16 @@
   "Convert SNAKES to hunks.  M and N are the length of sequences to compare.
 Numbers are zero-originated in the hunk."
   (let* (rlt
-         (i 0)
          (a-start 0)
-         (b-start 0)
-         current
-         change
-         (snakes-length (length snakes)))
-    (while (< i snakes-length)
-      (setq current (nth i snakes))
-      (setq change (list a-start
-                         b-start
-                         (nth 0 current)
-                         (nth 1 current)))
-      (push change rlt)
-      ;; the next change start from the end of current snake
-      (setq a-start (nth 2 current))
-      (setq b-start (nth 3 current))
-      (setq i (1+ i)))
+         (b-start 0))
+
+    (while snakes
+      (pcase-let ((`(,x ,y ,u ,v) (car snakes)))
+        (push (list a-start b-start x y) rlt)
+        (setq a-start u
+              b-start v))
+      (setq snakes (cdr snakes)))
+
 
     ;; manually add last change
     (when (or (> n a-start)
@@ -97,12 +90,9 @@ Numbers are zero-originated in the hunk."
     (setq rlt (nreverse rlt))
 
     ;; first hunk could be empty
-    (when (and (> (length rlt) 0))
-      (let ((first-hunk (car rlt)))
-        (when (and (eq (nth 2 first-hunk) 0)
-                   (eq (nth 3 first-hunk) 0))
-          (setq rlt (cdr rlt)))))
-
+    (when rlt
+      (pcase-let ((`(,x ,y ,u ,v) (car rlt)))
+        (when (and (= u 0) (= v 0)) (setq rlt (cdr rlt)))))
     rlt))
 
 (defun diff-lisp-change-compact (hunks a b)
@@ -113,63 +103,52 @@ Similar to xdl_change_compact in git."
 (defun diff-lisp-emit-diff (change-list a b &optional diff-header)
   "Output CHANGE-LIST between A and B.  DIFF-HEADER is output at the beginning.
 Similar to xdl_emit_diff in git."
-  (let* ((str (if change-list (or diff-header (format "--- a\n+++ b\n")) "") )
-         context-start
-         context-end
-         x1
-         x2
-         y1
-         y2
-         i
-         hunk-list)
+  (let* ((a-vec (if (vectorp a) a (vconcat a)))
+         (b-vec (if (vectorp b) b (vconcat b))))
+    (with-output-to-string
+      (when change-list
+        (princ (or diff-header (format "--- a\n+++ b\n"))))
 
-    (when diff-lisp-debug
-      (message "diff-lisp-emit-diff called => %s %s %s" change-list a b))
+      (dolist (change change-list)
+        (pcase-let ((`(,x1 ,y1 ,x2 ,y2 ,hunk-list) change))
+          ;; hunk header
+          (princ (format "@@ -%s,%s +%s,%s @@\n"
+                         (1+ x1) (- x2 x1)
+                         (1+ y1) (- y2 y1)))
 
-    (dolist (change change-list)
-      (setq x1 (nth 0 change))
-      (setq x2 (nth 2 change))
-      (setq y1 (nth 1 change))
-      (setq y2 (nth 3 change))
-      ;; output change header
-      (setq str (concat str (format "@@ -%s,%s +%s,%s @@\n"
-                                    (1+ x1)
-                                    (- x2 x1)
-                                    (1+ y1)
-                                    (- y2 y1))))
+          ;; push dummya and reverse
+          (setq hunk-list (nreverse (cons (list x2 y2 x2 y2) hunk-list)))
 
-      ;; prepare hunks in the change
-      (setq hunk-list (nth 4 change))
-      ;; push a dummy item
-      (push (list x2 y2 x2 y2) hunk-list)
-      ;; reverse the hunks
-      (setq hunk-list (nreverse hunk-list))
+          ;; output every hunk
+          (let ((context-start x1)
+                context-end i)
+            (dolist (hunk hunk-list)
+              (pcase-let ((`(,hx1 ,hy1 ,hx2 ,hy2) hunk))
+                ;; output hunk's context
+                (setq i context-start
+                      context-end hx1)
+                (while (< i context-end)
+                  (princ " ")
+                  (princ (aref a-vec i))
+                  (princ "\n")
+                  (setq i (1+ i)))
+                (setq context-start hx2)
 
-      ;; output hunks in the change
-      (setq context-start (nth 0 change))
-      (dolist (hunk hunk-list)
-        ;; output context before the hunk
-        (setq i context-start)
-        (setq context-end (nth 0 hunk))
-        (while (< i context-end)
-          (setq str (concat str " " (elt a i) "\n"))
-          (setq i (1+ i)))
-        ;; next context is after current hunk
-        (setq context-start (nth 2 hunk))
+                ;; output "DELETE" segments from a
+                (setq i hx1)
+                (while (< i hx2)
+                  (princ "-")
+                  (princ (aref a-vec i))
+                  (princ "\n")
+                  (setq i (1+ i)))
 
-        ;; a hunk, text to delete
-        (setq i (nth 0 hunk))
-        (while (< i (nth 2 hunk))
-          (setq str (concat str "-" (elt a i) "\n"))
-          (setq i (1+ i)))
-
-        ;; b hunk, text to add
-        (setq i (nth 1 hunk))
-        (while (< i (nth 3 hunk))
-          (setq str (concat str "+" (elt b i) "\n"))
-          (setq i (1+ i)))))
-
-    str))
+                ;; output "INSERT" segments from a
+                (setq i hy1)
+                (while (< i hy2)
+                  (princ "+")
+                  (princ (aref b-vec i))
+                  (princ "\n")
+                  (setq i (1+ i)))))))))))
 
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
@@ -181,30 +160,25 @@ Similar to xdl_emit_diff in git."
          (a-length (length a))
          (b-length (length b))
          (snakes (diff-lisp-myers-do-diff a-hash-list a-length b-hash-list b-length))
-         (hunks (diff-lisp-snakes-to-hunks snakes a-length b-length))
-         (hunks-length (length hunks))
          recent-change
-         hunk
-         hunk-list
-         changes
-         (i 0))
+         changes)
 
-    (while (< i hunks-length)
-      (setq hunk (nth i hunks))
-      (let* ((x1 (- (nth 0 hunk) diff-lisp-output-unified-context))
-             (y1 (- (nth 1 hunk) diff-lisp-output-unified-context))
-             (x2 (+ (nth 2 hunk) diff-lisp-output-unified-context))
-             (y2 (+ (nth 3 hunk) diff-lisp-output-unified-context)))
+    (dolist (hunk (diff-lisp-snakes-to-hunks snakes a-length b-length))
+      (pcase-let ((`(,x1 ,y1 ,x2 ,y2) hunk))
+
+        (setq x1 (- x1 diff-lisp-output-unified-context))
+        (setq y1 (- y1 diff-lisp-output-unified-context))
+        (setq x2 (+ x2 diff-lisp-output-unified-context))
+        (setq y2 (+ y2 diff-lisp-output-unified-context))
+
         (cond
-         ((setq recent-change (nth 0 changes))
+         ((setq recent-change (car changes))
           ;; If the hunk overlaps with latest change, merge it into the change
-          (when (or (<= x1 (nth 2 recent-change))
-                    (<= y1 (nth 3 recent-change)))
-            (setf (nth 2 (nth 0 changes)) (min x2 a-length))
-            (setf (nth 3 (nth 0 changes)) (min y2 b-length))
-            (setq hunk-list (nth 4 recent-change))
-            (push hunk hunk-list)
-            (setf (nth 4 (nth 0 changes)) hunk-list)))
+          (when (or (<= x1 (nth 2 recent-change)) (<= y1 (nth 3 recent-change)))
+            (let ((cell4 (nthcdr 4 recent-change)))
+              (setcar (nthcdr 2 recent-change) (min x2 a-length))
+              (setcar (nthcdr 3 recent-change) (min y2 b-length))
+              (setcar cell4 (cons hunk (car cell4))))))
 
          (t
           (push (list (max x1 0)
@@ -212,8 +186,7 @@ Similar to xdl_emit_diff in git."
                       (min x2 a-length)
                       (min y2 b-length)
                       (list hunk))
-                changes))))
-      (setq i (1+ i)))
+                changes)))))
 
     ;; compact changes
     (setq changes (diff-lisp-change-compact (nreverse changes) a b))
@@ -282,9 +255,7 @@ Similar to xdl_emit_diff in git."
   "Compare current region with region from `diff-lisp-mark-selected-text-as-a'.
 If no region is selected, `kill-ring' or clipboard is used instead."
   (interactive)
-  (let* (rlt-buf
-         cmd
-         diff-output
+  (let* (diff-output
          (a (save-current-buffer
               (set-buffer (get-buffer-create "*diff-lisp-A*"))
               (buffer-string)))
