@@ -63,7 +63,9 @@ Second sequence is subsequence of B, which starts from B-START with length M."
          k
          inverse-k ; k+delta
          x
-         y)
+         y
+         neg-d
+         d-minus-one)
 
     ;; initialize start point of the first forward D-path: x = 0, y = 1
     (diff-lisp-myers-set-v v1 1 v1-offset 0)
@@ -72,11 +74,13 @@ Second sequence is subsequence of B, which starts from B-START with length M."
 
     (setq d 0)
     (while (and (not path-found) (<= d max-d))
+      (setq neg-d (- d))
+      (setq d-minus-one (1- d))
       ;; forward d-path reaching
-      (setq k (- d))
+      (setq k neg-d)
       (while (and (not path-found) (<= k d))
         (cond
-         ((or (= k (- d))
+         ((or (= k neg-d)
               (and (/= k d)
                    (< (diff-lisp-myers-get-v v1 (1- k) v1-offset)
                       (diff-lisp-myers-get-v v1 (1+ k) v1-offset))))
@@ -101,14 +105,14 @@ Second sequence is subsequence of B, which starts from B-START with length M."
         (diff-lisp-myers-set-v v1 k v1-offset x)
 
         (when (and delta-odd-p
-                   (>= k (- delta (1- d)))
-                   (<= k (+ delta (1- d))))
+                   (>= k (- delta d-minus-one))
+                   (<= k (+ delta d-minus-one)))
           ;; Overlaps furthest reaching reverse (D-1)-path in diagonal k?
           ;; Right now the reverse (D-1)-path are stored in v2.
           (when (>= x (diff-lisp-myers-get-v v2 k v2-offset))
             (setq path-found t)
             ;; TODO, the last snake of the forward path is the middle snake
-            (setq rlt (diff-lisp-create-snake (+ d d -1)
+            (setq rlt (diff-lisp-create-snake (+ d d-minus-one)
                                               last-forward-snake-x
                                               last-forward-snake-y
                                               x
@@ -117,7 +121,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
         (setq k (+ k 2)))
 
       ;; reverse d-path reaching
-      (setq k (- d))
+      (setq k neg-d)
       (while (and (not path-found) (<= k d))
         (setq inverse-k (+ k delta))
         (cond
@@ -147,7 +151,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
 
 
         (when (and (not delta-odd-p)
-                   (>= inverse-k (- d))
+                   (>= inverse-k neg-d)
                    (<= inverse-k d))
           ;; If the path overlaps the furthest reaching forward D-path in diagonal inverse-k?
           ;; Right now the forward D-path are stored in v1.
