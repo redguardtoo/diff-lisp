@@ -67,6 +67,10 @@
 (defvar evil-state)
 ;; }}
 
+(defsubst diff-lisp-create-hunk (x y u v)
+  "Create hunk from X Y U V."
+  (list x y u v))
+
 (defun diff-lisp-snakes-to-hunks (snakes n m)
   "Convert SNAKES to hunks.  M and N are the length of sequences to compare.
 Numbers are zero-originated in the hunk."
@@ -76,7 +80,7 @@ Numbers are zero-originated in the hunk."
 
     (while snakes
       (pcase-let ((`(,x ,y ,u ,v) (car snakes)))
-        (push (list a-start b-start x y) rlt)
+        (push (diff-lisp-create-hunk a-start b-start x y) rlt)
         (setq a-start u
               b-start v))
       (setq snakes (cdr snakes)))
@@ -85,7 +89,7 @@ Numbers are zero-originated in the hunk."
     ;; manually add last change
     (when (or (> n a-start)
               (> m b-start))
-      (push (list a-start b-start n m) rlt))
+      (push (diff-lisp-create-hunk a-start b-start n m) rlt))
 
     (setq rlt (nreverse rlt))
 
