@@ -144,8 +144,8 @@ Similar to xdl_emit_diff in git."
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
   "Diff string S1 and string S2.  DIFF-HEADER is output at the beginning."
-  (let* ((a (vconcat (split-string s1 "\n")))
-         (b (vconcat (split-string s2 "\n")))
+  (let* ((a (vconcat (split-string s1 "\n" nil)))
+         (b (vconcat (split-string s2 "\n" nil)))
          (a-length (length a))
          (b-length (length b))
          (snakes (diff-lisp-myers-do-diff (diff-lisp-line-to-hash a)
