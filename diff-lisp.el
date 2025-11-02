@@ -104,50 +104,42 @@ Similar to xdl_change_compact in git."
 (defun diff-lisp-emit-diff (all-changes a b &optional diff-header)
   "Output ALL-CHANGES between A and B.  DIFF-HEADER is output at the beginning.
 Similar to xdl_emit_diff in git."
-  (with-output-to-string
+  (with-temp-buffer
     (when all-changes
-      (princ (or diff-header (format "--- a\n+++ b\n"))))
-
+      (insert (or diff-header (format "--- a\n+++ b\n"))))
     (dolist (change all-changes)
-      (pcase-let ((`(,x1 ,y1 ,x2 ,y2 ,hunks) change))
-        ;; hunk header
-        (princ (format "@@ -%s,%s +%s,%s @@\n"
-                       (1+ x1) (- x2 x1)
-                       (1+ y1) (- y2 y1)))
-
-        ;; push dummy data and reverse
+      ;; change: (x1 y1 x2 y2 hunks)
+      (cl-destructuring-bind (x1 y1 x2 y2 hunks) change
+        ;; header
+        (insert "@@ -"
+                (number-to-string (1+ x1)) "," (number-to-string (- x2 x1))
+                " +" (number-to-string (1+ y1)) "," (number-to-string (- y2 y1))
+                " @@\n")
+        ;; push dummy and reverse once
         (setq hunks (nreverse (cons (list x2 y2 x2 y2) hunks)))
 
-        ;; output every hunk
         (let ((context-start x1)
               context-end i)
           (dolist (hunk hunks)
-            (pcase-let ((`(,hx1 ,hy1 ,hx2 ,hy2) hunk))
-              ;; output hunk's context
+            (cl-destructuring-bind (hx1 hy1 hx2 hy2) hunk
+              ;; context
               (setq i context-start
                     context-end hx1)
               (while (< i context-end)
-                (princ " ")
-                (princ (aref a i))
-                (princ "\n")
+                (insert " " (aref a i) "\n")
                 (setq i (1+ i)))
               (setq context-start hx2)
-
-              ;; output "DELETE" segments from a
+              ;; deletions
               (setq i hx1)
               (while (< i hx2)
-                (princ "-")
-                (princ (aref a i))
-                (princ "\n")
+                (insert "-" (aref a i) "\n")
                 (setq i (1+ i)))
-
-              ;; output "INSERT" segments from a
+              ;; insertions
               (setq i hy1)
               (while (< i hy2)
-                (princ "+")
-                (princ (aref b i))
-                (princ "\n")
-                (setq i (1+ i))))))))))
+                (insert "+" (aref b i) "\n")
+                (setq i (1+ i))))))))
+    (buffer-string)))
 
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
