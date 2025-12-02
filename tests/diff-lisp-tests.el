@@ -235,5 +235,9 @@ Buggy code reading v2[k] can return nil and crash on comparison."
         (should (and (<= 0 x u) (<= 0 y v)))
         (should (and (<= u (length a)) (<= v (length b))))))))
 
+(ert-deftest test-myers-find-all-snakes-but-no-middle-snake ()
+  "No middle snake."
+  (diff-lisp-myers-do-diff [1 2 3 4] 4 [5 6] 2))
+
 (ert-run-tests-batch-and-exit)
 ;;; diff-lisp-tests.el ends here

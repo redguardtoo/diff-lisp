@@ -183,45 +183,46 @@ Second sequence is subsequence of B, which starts from B-START with length M."
            ;; Use a-start and b-start is to avoid copy sequences.
            (middle-snake (diff-lisp-myers-find-middle-snake a a-start n b b-start m)))
 
-      (pcase-let ((`(,x ,y ,u ,v ,d) middle-snake))
-        (cond
-         ((and d (> d 1))
-          (setq all-snakes
-                (nconc (diff-lisp-myers-find-all-snakes a a-start x b b-start y)
-                       (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v))))
-          (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))
-
-         ((> m n)
-          ;; If d = 1, there are two cases:
-          ;;    Case 1       Case 2
-          ;;  x---x---x    x---x---x
-          ;;  | \ |   |    |   |   |
-          ;;  x---x---x    x---x---x
-          ;;  |   | \ |    | \ |   |
-          ;;  x---x---x    x---x---x
-          ;;  |   |   |    |   | \ |
-          ;;  x---x---x    x---x---x
-          ;; In Case 1, right bottom corner is returned as the middle snake.
+      (when middle-snake
+        (pcase-let ((`(,x ,y ,u ,v ,d) middle-snake))
           (cond
-           ((and (= x u) (= y v))
-            (push (list a-start b-start (+ n a-start) (+ n b-start)) all-snakes))
-           (t
-            (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))
+           ((and d (> d 1))
+            (setq all-snakes
+                  (nconc (diff-lisp-myers-find-all-snakes a a-start x b b-start y)
+                         (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v))))
+            (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))
 
-         (t
-          ;; If d = 1, there are two cases:
-          ;;     Case 1            Case 2
-          ;;  x---x---x---x     x---x---x---x
-          ;;  | \ |   |   |     |   | \ |   |
-          ;;  x---x---x---x     x---x---x---x
-          ;;  |   | \ |   |     |   |   | \ |
-          ;;  x---x---x---x     x---x---x---x
-          ;; In Case 1, right bottom corner is returned as the middle snake.
-          (cond
-           ((and (= x u) (= y v))
-            (push (list a-start b-start (+ m a-start) (+ m b-start)) all-snakes))
+           ((> m n)
+            ;; If d = 1, there are two cases:
+            ;;    Case 1       Case 2
+            ;;  x---x---x    x---x---x
+            ;;  | \ |   |    |   |   |
+            ;;  x---x---x    x---x---x
+            ;;  |   | \ |    | \ |   |
+            ;;  x---x---x    x---x---x
+            ;;  |   |   |    |   | \ |
+            ;;  x---x---x    x---x---x
+            ;; In Case 1, right bottom corner is returned as the middle snake.
+            (cond
+             ((and (= x u) (= y v))
+              (push (list a-start b-start (+ n a-start) (+ n b-start)) all-snakes))
+             (t
+              (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))
+
            (t
-            (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))))
+            ;; If d = 1, there are two cases:
+            ;;     Case 1            Case 2
+            ;;  x---x---x---x     x---x---x---x
+            ;;  | \ |   |   |     |   | \ |   |
+            ;;  x---x---x---x     x---x---x---x
+            ;;  |   | \ |   |     |   |   | \ |
+            ;;  x---x---x---x     x---x---x---x
+            ;; In Case 1, right bottom corner is returned as the middle snake.
+            (cond
+             ((and (= x u) (= y v))
+              (push (list a-start b-start (+ m a-start) (+ m b-start)) all-snakes))
+             (t
+              (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes)))))))
       all-snakes)))
 
 
