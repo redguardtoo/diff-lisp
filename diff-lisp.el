@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2021-2025 Chen Bin
 ;;
-;; Version: 0.2.0
+;; Version: 0.2.1
 ;; Keywords: convenience patch diff vc
 ;; Author: Chen Bin <chenbin DOT sh AT gmail DOT com>
 ;; URL: https://github.com/redguardtoo/diff-lisp
@@ -113,7 +113,11 @@ Similar to xdl_emit_diff in git."
       (insert (or diff-header (format "--- a\n+++ b\n"))))
     (dolist (change all-changes)
       ;; change: (x1 y1 x2 y2 hunks)
-      (cl-destructuring-bind (x1 y1 x2 y2 hunks) change
+      (let ((x1 (nth 0 change))
+            (y1 (nth 1 change))
+            (x2 (nth 2 change))
+            (y2 (nth 3 change))
+            (hunks (nth 4 change)))
         ;; header
         (insert "@@ -"
                 (number-to-string (1+ x1)) "," (number-to-string (- x2 x1))
@@ -125,7 +129,10 @@ Similar to xdl_emit_diff in git."
         (let ((context-start x1)
               context-end i)
           (dolist (hunk hunks)
-            (cl-destructuring-bind (hx1 hy1 hx2 hy2) hunk
+            (let ((hx1 (nth 0 hunk))
+                  (hy1 (nth 1 hunk))
+                  (hx2 (nth 2 hunk))
+                  (hy2 (nth 3 hunk)))
               ;; context
               (setq i context-start
                     context-end hx1)
@@ -142,7 +149,9 @@ Similar to xdl_emit_diff in git."
               (setq i hy1)
               (while (< i hy2)
                 (insert "+" (aref b i) "\n")
-                (setq i (1+ i))))))))
+                (setq i (1+ i))))))
+        )
+      )
     (buffer-string)))
 
 ;;;###autoload
@@ -202,7 +211,10 @@ Similar to xdl_emit_diff in git."
 
 (defun diff-lisp-format-region-boundary (b e)
   "Make sure lines are selected and B is less than E."
-  (if (> b e) (cl-rotatef b e))
+  ; rotate b e
+  (let ((tmp b))
+    (setq b e
+          e tmp))
 
   ;; select lines
   (save-excursion
