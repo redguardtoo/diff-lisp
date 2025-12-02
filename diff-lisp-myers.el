@@ -42,7 +42,7 @@ Second sequence is subsequence of B, which starts from B-START with length M."
   (let* (rlt
          (delta (- n m))
          (sum (+ n m))
-         (delta-odd-p (cl-oddp delta))
+         (delta-odd-p (= (logand delta 1) 1))
          (max-d (floor sum 2))
          ;; forward D-path
          (v1 (make-vector (+ sum 1) -1))
@@ -226,18 +226,23 @@ Second sequence is subsequence of B, which starts from B-START with length M."
       all-snakes)))
 
 
-(defsubst diff-lisp--empty-snake-p (snake)
-  "SNAKE start point is x y; end point is u v."
-  (pcase-let ((`(,x ,y ,u ,v) snake))
-    (and (= x u) (= y v))))
+(defsubst diff-lisp--not-empty-snake-p (snake)
+  "Test if SNAKE is not empty."
+  ;; snake = (x y u v)
+  ;; Test x == u and y == v ?
+  (if (or (/= (nth 0 snake) (nth 2 snake))
+          (/= (nth 1 snake) (nth 3 snake)))
+      snake))
+
 
 (defun diff-lisp-myers-do-diff (a n b m)
   "Diff sequence A with length N and sequence B with length M.
-Return snakes."
-  ;; returning a list is fine because all calculation is done
-  ;; The list is only used to produce output
-  (cl-sort (cl-delete-if #'diff-lisp--empty-snake-p
-                         (diff-lisp-myers-find-all-snakes a 0 n b 0 m)) #'< :key #'car))
+Return snakes sorted by start index."
+  (let ((snakes (diff-lisp-myers-find-all-snakes a 0 n b 0 m)))
+    (setq snakes (delete nil
+                         (mapcar #'diff-lisp--not-empty-snake-p
+                                 snakes)))
+    (sort snakes (lambda (x y) (< (car x) (car y))))))
 
 (provide 'diff-lisp-myers)
 ;;; diff-lisp-myers.el ends here
