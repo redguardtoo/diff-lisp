@@ -45,7 +45,7 @@
 
 
 (defgroup diff-lisp nil
-  "Create diff in purse lisp."
+  "Create diff in pure Lisp."
   :group 'convenience)
 
 (defcustom diff-lisp-output-unified-context 3
