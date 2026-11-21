@@ -15,6 +15,13 @@ Nothing to set up.
 - Select another region and run =diff-lisp-diff-a-and-b=.
 - The difference of two region is displayed in a buffer.
 
+Use below setup to ignore white spaces,
+#+begin_src emacs-lisp
+(with-eval-after-load 'diff-lisp
+  (setq diff-lisp-ignore-whitespace t)
+  (setq diff-lisp-ignore-whitespace-change t))
+#+end_src
+
 * Tips
 API =diff-lisp-diff-strings= and =diff-lisp-diff-files= are provided.
 * Contact me
