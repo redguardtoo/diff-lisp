@@ -175,30 +175,25 @@ Similar to xdl_emit_diff in git."
          changes)
 
     (dolist (hunk (diff-lisp-snakes-to-hunks snakes a-length b-length))
-      (pcase-let ((`(,x1 ,y1 ,x2 ,y2) hunk))
-
-        (setq x1 (- x1 diff-lisp-output-unified-context))
-        (setq y1 (- y1 diff-lisp-output-unified-context))
-        (setq x2 (+ x2 diff-lisp-output-unified-context))
-        (setq y2 (+ y2 diff-lisp-output-unified-context))
-
+      (pcase-let* ((`(,x1 ,y1 ,x2 ,y2) hunk)
+                   (sx1 (max (- x1 diff-lisp-output-unified-context) 0))
+                   (sy1 (max (- y1 diff-lisp-output-unified-context) 0))
+                   (sx2 (min (+ x2 diff-lisp-output-unified-context) a-length))
+                   (sy2 (min (+ y2 diff-lisp-output-unified-context) b-length)))
         (cond
          ((and (setq recent-change (nth 0 changes))
-               (or (<= x1 (nth 2 recent-change))
-                   (<= y1 (nth 3 recent-change))))
-          ;; If the hunk overlaps with latest change, merge it into the change
-          (setf (nth 2 (nth 0 changes)) (min x2 a-length))
-          (setf (nth 3 (nth 0 changes)) (min y2 b-length))
+               (<= sx1 (nth 2 recent-change))
+               (<= sy1 (nth 3 recent-change)))
+          ;; Merge only when both A and B sides overlap/are adjacent,
+          ;; expanding the end bounds using `max'.
+          (setf (nth 2 (nth 0 changes)) (max (nth 2 recent-change) sx2))
+          (setf (nth 3 (nth 0 changes)) (max (nth 3 recent-change) sy2))
           (setq hunk-list (nth 4 recent-change))
           (push hunk hunk-list)
           (setf (nth 4 (nth 0 changes)) hunk-list))
 
          (t
-          (push (list (max x1 0)
-                      (max y1 0)
-                      (min x2 a-length)
-                      (min y2 b-length)
-                      (list hunk))
+          (push (list sx1 sy1 sx2 sy2 (list hunk))
                 changes)))))
 
     ;; compact changes

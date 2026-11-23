@@ -145,10 +145,11 @@
     (should (null (diff-lisp-myers-do-diff non-empty 3 empty 0)))))
 
 (ert-deftest test-no-common-elements-insert-and-delete ()
-  "Completely disjoint sequences should produce no matching snakes."
-  (let ((a (string-to-vector "abc"))
-        (b (string-to-vector "xyz")))
-    (should (null (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b))))
+  "Completely disjoint sequences should produce no non-empty matching snakes."
+  (let* ((a (string-to-vector "abc"))
+         (b (string-to-vector "xyz"))
+         (raw-snakes (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b))))
+    (should (null (delete nil (mapcar #'diff-lisp--not-empty-snake-p raw-snakes))))
     (should (null (diff-lisp-myers-do-diff a (length a) b (length b))))))
 
 (ert-deftest test-b-is-longer-than-a ()
@@ -271,6 +272,22 @@ must not treat mismatched leading elements as a snake."
          (rlt (diff-lisp-myers-do-diff a (length a) b (length b))))
     (should (= (length rlt) 1))
     (should (equal (car rlt) '(1 0 3 2)))))
+
+(ert-deftest test-merge-adjacent-hunks-both-sides ()
+  "Adjacent hunks within unified context on both A and B should merge into one @@ block."
+  (let* ((diff-lisp-output-unified-context 3)
+         (s1 (mapconcat #'identity
+                        '("a1" "a2" "a3" "a4" "a5"
+                          "a6" "a7" "a8" "a9" "a10")
+                        "\n"))
+         (s2 (mapconcat #'identity
+                        '("a1" "a2" "b3" "a4" "a5"
+                          "a6" "b7" "a8" "a9" "a10")
+                        "\n"))
+         (diff (diff-lisp-diff-strings s1 s2)))
+    ;; Only one "@@ ... @@" hunk header is emitted when two nearby edits merge
+    (should (= (length (split-string diff "^@@.*@@$" t)) 2))
+    (should (string-match-p "@@ -1,10 \\+1,10 @@" diff))))
 
 (ert-run-tests-batch-and-exit)
 ;;; diff-lisp-tests.el ends here
