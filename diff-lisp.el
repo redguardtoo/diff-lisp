@@ -267,34 +267,35 @@ Similar to xdl_emit_diff in git."
   "Compare current region with region from `diff-lisp-mark-selected-text-as-a'.
 If no region is selected, `kill-ring' or clipboard is used instead."
   (interactive)
-  (let* (diff-output
-         (a (save-current-buffer
-              (set-buffer (get-buffer-create "*diff-lisp-A*"))
-              (buffer-string)))
-         (b (cond
-             ;; text from selected region
-             ((region-active-p)
-              (let ((region (diff-lisp-format-region-boundary (region-beginning) (region-end))))
-                (buffer-substring (nth 0 region) (nth 1 region))))
+  (let* ((buf-a (get-buffer "*diff-lisp-A*"))
+         (a (when buf-a
+              (with-current-buffer buf-a
+                (buffer-string)))))
+    (if (or (not a) (string-empty-p a))
+        (message "Please mark text as A first using `diff-lisp-mark-selected-text-as-a'.")
+      (let* (diff-output
+             (b (cond
+                 ;; text from selected region
+                 ((region-active-p)
+                  (let ((region (diff-lisp-format-region-boundary (region-beginning) (region-end))))
+                    (buffer-substring (nth 0 region) (nth 1 region))))
 
-             ;; text from `kill-ring' or clipboard
-             (t
-              (pcase (completing-read "No region is selected. Compare text from: "
-                                      '("kill-ring" "clipboard"))
-                ("kill-ring"
-                 (car kill-ring))
-                ("clipboard"
-                 (when (functionp diff-lisp-get-clipboard-function)
-                   (funcall diff-lisp-get-clipboard-function))))))))
+                 ;; text from `kill-ring' or clipboard
+                 (t
+                  (pcase (completing-read "No region is selected. Compare text from: "
+                                          '("kill-ring" "clipboard"))
+                    ("kill-ring"
+                     (car kill-ring))
+                    ("clipboard"
+                     (when (functionp diff-lisp-get-clipboard-function)
+                       (funcall diff-lisp-get-clipboard-function))))))))
+        (when (and a b)
+          (cond
+           ((string-empty-p (setq diff-output (diff-lisp-diff-strings a b)))
+            (message "Two regions are SAME!"))
 
-    (when (and a b)
-      (cond
-       ((string-empty-p (setq diff-output (diff-lisp-diff-strings a b)))
-        (message "Two regions are SAME!"))
-
-       (t
-        ;; show the diff output
-        (diff-lisp-open-diff-output diff-output "*diff-lisp-output*"))))))
-
+           (t
+            ;; show the diff output
+            (diff-lisp-open-diff-output diff-output "*diff-lisp-output*"))))))))
 (provide 'diff-lisp)
 ;;; diff-lisp.el ends here
