@@ -128,12 +128,35 @@
     (should (string= (test-strip-diff-header (diff-lisp-diff-files fp1 fp2))
                      (test-strip-diff-header output)))))
 
+(ert-deftest test-empty-sequences ()
+  "Boundary cases when one or both sequences are empty (n = 0 or m = 0)."
+  (let ((non-empty (string-to-vector "abc"))
+        (empty []))
+    ;; Both empty
+    (should (null (diff-lisp-myers-find-all-snakes empty 0 0 empty 0 0)))
+    (should (null (diff-lisp-myers-do-diff empty 0 empty 0)))
+
+    ;; A is empty, B is non-empty (pure insertion)
+    (should (null (diff-lisp-myers-find-all-snakes empty 0 0 non-empty 0 3)))
+    (should (null (diff-lisp-myers-do-diff empty 0 non-empty 3)))
+
+    ;; A is non-empty, B is empty (pure deletion)
+    (should (null (diff-lisp-myers-find-all-snakes non-empty 0 3 empty 0 0)))
+    (should (null (diff-lisp-myers-do-diff non-empty 3 empty 0)))))
+
+(ert-deftest test-no-common-elements-insert-and-delete ()
+  "Completely disjoint sequences should produce no matching snakes."
+  (let ((a (string-to-vector "abc"))
+        (b (string-to-vector "xyz")))
+    (should (null (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b))))
+    (should (null (diff-lisp-myers-do-diff a (length a) b (length b))))))
+
 (ert-deftest test-b-is-longer-than-a ()
   (let* ((a (string-to-vector "abcd"))
          (b (string-to-vector "abczacd"))
          (rlt (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b))))
     (should (= (length rlt) 4))
-    (setq rlt (diff-lisp-myers-do-diff a  (length a) b (length b)))
+    (setq rlt (diff-lisp-myers-do-diff a (length a) b (length b)))
     (should (= (length rlt) 2))
     (should (equal (nth 0 rlt) '(0 0 3 3)))
     (should (equal (nth 1 rlt) '(3 6 4 7)))))
@@ -204,8 +227,10 @@ Buggy code reading v2[k] can return nil and crash on comparison."
     (should (not signaled))
     (should (= (length snake) 5))))
 
+
 (ert-deftest test-do-diff-odd-delta-basic ()
-  "End-to-end MRE: odd delta case should not crash inside middle-snake and should yield a single common snake."
+  "End-to-end MRE: odd delta case should not crash inside middle-snake
+and should yield a single common snake."
   (let* ((a (string-to-vector "ab"))
          (b (string-to-vector "a"))
          signaled
@@ -216,11 +241,10 @@ Buggy code reading v2[k] can return nil and crash on comparison."
                 (setq rlt (diff-lisp-myers-do-diff a (length a) b (length b)))
                 nil)
             (error t)))
-    ;; After fix: should NOT signal
     (should (not signaled))
-    ;; Only the common 'a' snake should be present
     (should (= (length rlt) 1))
     (should (equal (car rlt) '(0 0 1 1)))))
+
 
 (ert-deftest test-even-delta-stability ()
   "Regression guard: even delta should produce stable path selection (tie-breaking uses strict <)."
@@ -238,6 +262,15 @@ Buggy code reading v2[k] can return nil and crash on comparison."
 (ert-deftest test-myers-find-all-snakes-but-no-middle-snake ()
   "No middle snake."
   (diff-lisp-myers-do-diff [1 2 3 4] 4 [5 6] 2))
+
+(ert-deftest test-d1-edit-before-common-snake ()
+  "When d = 1 and middle snake degenerates, edit before common elements
+must not treat mismatched leading elements as a snake."
+  (let* ((a (string-to-vector "XAB")) ;; n=3, delete 'X', common 'AB' at [1..3]
+         (b (string-to-vector "AB"))  ;; m=2, common 'AB' at [0..2]
+         (rlt (diff-lisp-myers-do-diff a (length a) b (length b))))
+    (should (= (length rlt) 1))
+    (should (equal (car rlt) '(1 0 3 2)))))
 
 (ert-run-tests-batch-and-exit)
 ;;; diff-lisp-tests.el ends here

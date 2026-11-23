@@ -171,12 +171,46 @@ Second sequence is subsequence of B, which starts from B-START with length M."
 
     rlt))
 
+(defun diff-lisp-myers--find-d1-snake (a a-start n b b-start m x u y v)
+  "Find snake for a subproblem with edit distance D = 1.
+A and B are sequence/vector representations; subproblem starts at
+A-START (length N) and B-START (length M), with middle-snake
+coordinates X, Y, U, V in local coordinates."
+  (if (and (= x u) (= y v))
+      ;; When middle snake degenerates to a point (edit distance = 1),
+      ;; find the longest contiguous matching run within [a-start, a-start+n)
+      ;; and [b-start, b-start+m) rather than assuming offset (0, 0).
+      (let ((best-len 0)
+            (best-a a-start)
+            (best-b b-start)
+            (i 0))
+        (while (< i n)
+          (let ((j 0))
+            (while (< j m)
+              (let ((pa (+ a-start i))
+                    (pb (+ b-start j))
+                    (match-len 0))
+                (while (and (< (+ pa match-len) (+ a-start n))
+                            (< (+ pb match-len) (+ b-start m))
+                            (diff-lisp-string-equal a b
+                                                    (+ pa match-len)
+                                                    (+ pb match-len)))
+                  (setq match-len (1+ match-len)))
+                (when (> match-len best-len)
+                  (setq best-len match-len
+                        best-a pa
+                        best-b pb)))
+              (setq j (1+ j))))
+          (setq i (1+ i)))
+        (list best-a best-b (+ best-a best-len) (+ best-b best-len)))
+    (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start))))
+
 (defun diff-lisp-myers-find-all-snakes (a a-start n b b-start m)
   "Find all snakes from two sequences.
 First sequence is subsequence of A, which starts from A-START with length N.
 Second sequence is subsequence of B, which starts from B-START with length M."
   (when diff-lisp-debug
-      (message "diff-lisp-myers-find-all-snakes called => %s %s %s %s" a-start n b-start m))
+    (message "diff-lisp-myers-find-all-snakes called => %s %s %s %s" a-start n b-start m))
 
   (when (and (> n 0) (> m 0))
     (let* (all-snakes
@@ -192,37 +226,9 @@ Second sequence is subsequence of B, which starts from B-START with length M."
                          (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v))))
             (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))
 
-           ((> m n)
-            ;; If d = 1, there are two cases:
-            ;;    Case 1       Case 2
-            ;;  x---x---x    x---x---x
-            ;;  | \ |   |    |   |   |
-            ;;  x---x---x    x---x---x
-            ;;  |   | \ |    | \ |   |
-            ;;  x---x---x    x---x---x
-            ;;  |   |   |    |   | \ |
-            ;;  x---x---x    x---x---x
-            ;; In Case 1, right bottom corner is returned as the middle snake.
-            (cond
-             ((and (= x u) (= y v))
-              (push (list a-start b-start (+ n a-start) (+ n b-start)) all-snakes))
-             (t
-              (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))))
-
            (t
-            ;; If d = 1, there are two cases:
-            ;;     Case 1            Case 2
-            ;;  x---x---x---x     x---x---x---x
-            ;;  | \ |   |   |     |   | \ |   |
-            ;;  x---x---x---x     x---x---x---x
-            ;;  |   | \ |   |     |   |   | \ |
-            ;;  x---x---x---x     x---x---x---x
-            ;; In Case 1, right bottom corner is returned as the middle snake.
-            (cond
-             ((and (= x u) (= y v))
-              (push (list a-start b-start (+ m a-start) (+ m b-start)) all-snakes))
-             (t
-              (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes)))))))
+            (push (diff-lisp-myers--find-d1-snake a a-start n b b-start m x u y v)
+                  all-snakes)))))
       all-snakes)))
 
 

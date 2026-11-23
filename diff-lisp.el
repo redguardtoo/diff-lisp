@@ -30,6 +30,11 @@
 ;;   - Select another region and run `diff-lisp-diff-a-and-b'.
 ;;   - The difference of two region is displayed in a buffer.
 ;;
+;; Tip, use below setup to ignore white spaces,
+;;   (with-eval-after-load 'diff-lisp
+;;     (setq diff-lisp-ignore-whitespace t)
+;;     (setq diff-lisp-ignore-whitespace-change t))
+;;
 ;; API `diff-lisp-diff-strings' and `diff-lisp-diff-files' are provided.
 ;;
 ;; The diff algorithm is written in pure Lisp.
@@ -213,13 +218,14 @@ Similar to xdl_emit_diff in git."
   "Make sure lines are selected and B is less than E."
   ; rotate b e
   (let ((tmp b))
-    (setq b e
-          e tmp))
+    (when (> b e)
+      (setq b e
+            e tmp)))
 
   ;; select lines
   (save-excursion
     ;; Another workaround for evil-visual-line bug:
-    ;; In evil-mode, if we use hotkey V or `M-x evil-visual-line` to select line,
+    ;; In `evil-mode', if we use hotkey V or `M-x evil-visual-line' to select line,
     ;; the (line-beginning-position) of the line which is after the last selected
     ;; line is always (region-end)! Don't know why.
     (when (and (> e b)
