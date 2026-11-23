@@ -213,7 +213,8 @@ Second sequence is subsequence of B, which starts from B-START with length M."
     (message "diff-lisp-myers-find-all-snakes called => %s %s %s %s" a-start n b-start m))
 
   (when (and (> n 0) (> m 0))
-    (let* (all-snakes
+    (let* (snake
+           all-snakes
            ;; Use a-start and b-start is to avoid copy sequences.
            (middle-snake (diff-lisp-myers-find-middle-snake a a-start n b b-start m)))
 
@@ -224,11 +225,14 @@ Second sequence is subsequence of B, which starts from B-START with length M."
             (setq all-snakes
                   (nconc (diff-lisp-myers-find-all-snakes a a-start x b b-start y)
                          (diff-lisp-myers-find-all-snakes a (+ a-start u) (- n u) b (+ b-start v) (- m v))))
-            (push (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)) all-snakes))
+            (setq snake (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start)))
+            (when (diff-lisp--not-empty-snake-p snake)
+              (push snake all-snakes)))
 
            (t
-            (push (diff-lisp-myers--find-d1-snake a a-start n b b-start m x u y v)
-                  all-snakes)))))
+            (setq snake (diff-lisp-myers--find-d1-snake a a-start n b b-start m x u y v))
+            (when (diff-lisp--not-empty-snake-p snake)
+              (push snake all-snakes))))))
       all-snakes)))
 
 

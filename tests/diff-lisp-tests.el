@@ -110,7 +110,7 @@
       (should (= d 5)))
 
     (setq snake (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b)))
-    (should (= (length snake) 4))
+    (should (= (length snake) 3))
     (setq snake (diff-lisp-myers-do-diff a (length a) b (length b)))
     (should (= (length snake) 3))))
 
@@ -156,11 +156,24 @@
   (let* ((a (string-to-vector "abcd"))
          (b (string-to-vector "abczacd"))
          (rlt (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b))))
-    (should (= (length rlt) 4))
+    (should (= (length rlt) 2))
     (setq rlt (diff-lisp-myers-do-diff a (length a) b (length b)))
     (should (= (length rlt) 2))
     (should (equal (nth 0 rlt) '(0 0 3 3)))
     (should (equal (nth 1 rlt) '(3 6 4 7)))))
+
+(ert-deftest test-a-b-share-common-prefix ()
+  "A prefix of B should produce a single snake covering the shared prefix without empty snakes."
+  (let* ((a (string-to-vector "abc"))
+         (b (string-to-vector "abcdefgh"))
+         (snakes (diff-lisp-myers-find-all-snakes a 0 (length a) b 0 (length b)))
+         (sorted-snakes (diff-lisp-myers-do-diff a (length a) b (length b)))
+         (hunks (diff-lisp-snakes-to-hunks sorted-snakes (length a) (length b))))
+    ;; Only the non-empty common-prefix snake [0..3) in A and [0..3) in B is kept
+    (should (equal snakes '((0 0 3 3))))
+    (should (equal sorted-snakes '((0 0 3 3))))
+    ;; Remaining suffix "defgh" in B becomes a single trailing insertion hunk
+    (should (equal hunks '((3 3 3 8))))))
 
 (ert-deftest test-no-difference ()
   (let* ((a (string-to-vector "abcd"))
