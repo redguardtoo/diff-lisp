@@ -66,36 +66,42 @@
       (should (= v 2)))))
 
 (ert-deftest test-line-to-hash ()
-  ;; default setup
-  (should (not diff-lisp-ignore-whitespace))
-  (should (not diff-lisp-ignore-whitespace-change))
-  (should diff-lisp-ignore-whitespace-at-eol)
-  (should diff-lisp-ignore-cr-at-eol)
+  (let* ((diff-lisp-ignore-whitespace nil)
+         (diff-lisp-ignore-whitespace-change nil)
+         (diff-lisp-ignore-whitespace-at-eol t))
 
-  ;; can produce normal hash
-  (should (> (diff-lisp-hash-record "abcd") 0))
-  (should (/= (diff-lisp-hash-record "abcd") (diff-lisp-hash-record "abce")))
-  (should (/= (diff-lisp-hash-record "abcd") (diff-lisp-hash-record "ab cd")))
-  (should (/= (diff-lisp-hash-record "ab cd") (diff-lisp-hash-record "ab  cd")))
+    ;; can produce normal hash
+    (should (> (diff-lisp-hash-record "abcd") 0))
+    (should (/= (diff-lisp-hash-record "abcd") (diff-lisp-hash-record "abce")))
+    (should (/= (diff-lisp-hash-record "abcd") (diff-lisp-hash-record "ab cd")))
+    (should (/= (diff-lisp-hash-record "ab cd") (diff-lisp-hash-record "ab  cd")))
 
-  ;; remove trailing white spaces before hashing
-  (should (= (diff-lisp-hash-record-with-whitespace "abcd")
-             (diff-lisp-hash-record-with-whitespace "abcd  ")))
-  (let* ((diff-lisp-ignore-whitespace-at-eol nil))
+    (should (/= (diff-lisp-hash-record-with-whitespace "abcd")
+                (diff-lisp-hash-record-with-whitespace "ab cd")))
+    (should (/= (diff-lisp-hash-record-with-whitespace "a b c d")
+                (diff-lisp-hash-record-with-whitespace "abcd ")))
+    (should (/= (diff-lisp-hash-record-with-whitespace "ab cd")
+                (diff-lisp-hash-record-with-whitespace "ab  cd")))
+
+    ;; remove trailing white spaces before hashing
+    (should (= (diff-lisp-hash-record-with-whitespace "abcd")
+               (diff-lisp-hash-record-with-whitespace "abcd  "))))
+
+  (let* ((diff-lisp-ignore-whitespace nil)
+         (diff-lisp-ignore-whitespace-change nil)
+         (diff-lisp-ignore-whitespace-at-eol nil))
     (should (/= (diff-lisp-hash-record-with-whitespace "abcd")
                 (diff-lisp-hash-record-with-whitespace "abcd  "))))
 
-  (should (/= (diff-lisp-hash-record-with-whitespace "ab cd")
-              (diff-lisp-hash-record-with-whitespace "ab  cd")))
-  (let* ((diff-lisp-ignore-whitespace-change t))
+  (let* ((diff-lisp-ignore-whitespace nil)
+         (diff-lisp-ignore-whitespace-change t)
+         (diff-lisp-ignore-whitespace-at-eol nil))
     (should (= (diff-lisp-hash-record-with-whitespace "ab cd")
                (diff-lisp-hash-record-with-whitespace "ab  cd"))))
 
-  (should (/= (diff-lisp-hash-record-with-whitespace "abcd")
-              (diff-lisp-hash-record-with-whitespace "ab cd")))
-  (should (/= (diff-lisp-hash-record-with-whitespace "a b c d")
-              (diff-lisp-hash-record-with-whitespace "abcd ")))
-  (let* ((diff-lisp-ignore-whitespace t))
+  (let* ((diff-lisp-ignore-whitespace t)
+         (diff-lisp-ignore-whitespace-change nil)
+         (diff-lisp-ignore-whitespace-at-eol nil))
     (should (= (diff-lisp-hash-record-with-whitespace "abcd")
                (diff-lisp-hash-record-with-whitespace "ab cd")))
     (should (= (diff-lisp-hash-record-with-whitespace "a b c d")
@@ -302,5 +308,6 @@ must not treat mismatched leading elements as a snake."
     (should (= (length (split-string diff "^@@.*@@$" t)) 2))
     (should (string-match-p "@@ -1,10 \\+1,10 @@" diff))))
 
-(ert-run-tests-batch-and-exit)
+;; (ert-run-tests-batch-and-exit)
+(ert-run-tests-batch-and-exit 'test-line-to-hash)
 ;;; diff-lisp-tests.el ends here

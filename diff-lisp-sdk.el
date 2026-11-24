@@ -21,10 +21,10 @@
 
 ;;; Code:
 
-(defvar diff-lisp-ignore-whitespace nil
+(defvar diff-lisp-ignore-whitespace t
   "Ignore white space.")
 
-(defvar diff-lisp-ignore-whitespace-change nil
+(defvar diff-lisp-ignore-whitespace-change t
   "Ignore white space change.")
 
 (defvar diff-lisp-ignore-whitespace-at-eol t
