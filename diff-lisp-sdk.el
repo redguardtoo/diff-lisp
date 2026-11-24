@@ -30,9 +30,6 @@
 (defvar diff-lisp-ignore-whitespace-at-eol t
   "Ignore white space at end of line.")
 
-(defvar diff-lisp-ignore-cr-at-eol t
-  "Ignore CR character at end of line.")
-
 (defvar diff-lisp-debug nil "Debug flag.")
 
 (defsubst diff-lisp-string-equal (a b x y)
@@ -74,7 +71,6 @@
 See xdl_hash_record_with_whitespace from git."
   (let* ((h 5381)
          (len (length s))
-         (ignore-cr diff-lisp-ignore-cr-at-eol)
          (last (1- len))
          (i 0)
          j
@@ -85,7 +81,7 @@ See xdl_hash_record_with_whitespace from git."
       (cond
 
        ;; ignore CR at eol (Windows-style line ending)
-       ((and ignore-cr (= c 13) (= i last)))
+       ((and (= c 13) (= i last)))
 
        ;; whitespace rules
        ((diff-lisp-whitespace-p c)
@@ -131,8 +127,7 @@ See xdl_hash_record_with_whitespace from git."
     (cond
      ((or diff-lisp-ignore-whitespace
           diff-lisp-ignore-whitespace-change
-          diff-lisp-ignore-whitespace-at-eol
-          diff-lisp-ignore-cr-at-eol)
+          diff-lisp-ignore-whitespace-at-eol)
       (dotimes (i len)
         (aset rlt i (diff-lisp-hash-record-with-whitespace (aref lines i)))))
      (t
