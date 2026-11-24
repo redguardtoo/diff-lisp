@@ -154,16 +154,24 @@ Similar to xdl_emit_diff in git."
               (setq i hy1)
               (while (< i hy2)
                 (insert "+" (aref b i) "\n")
-                (setq i (1+ i))))))
-        )
-      )
+                (setq i (1+ i))))))))
     (buffer-string)))
+
+(defun diff-lisp--split-lines (str)
+  "Split STR into lines without a trailing empty element from a final newline."
+  (let* ((trimmed (if (and (> (length str) 0)
+                           (eq (aref str (1- (length str))) ?\n))
+                      (substring str 0 (1- (length str)))
+                    str)))
+    (split-string trimmed "\n" nil)))
 
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
   "Diff string S1 and string S2.  DIFF-HEADER is output at the beginning."
-  (let* ((a (vconcat (split-string s1 "\n" nil)))
-         (b (vconcat (split-string s2 "\n" nil)))
+  (when diff-lisp-debug
+    (message "diff-lisp-diff-strings called => %s %s" s1 s2))
+  (let* ((a (vconcat (diff-lisp--split-lines s1)))
+         (b (vconcat (diff-lisp--split-lines s2)))
          (a-length (length a))
          (b-length (length b))
          (snakes (diff-lisp-myers-do-diff (diff-lisp-line-to-hash a)
@@ -173,6 +181,9 @@ Similar to xdl_emit_diff in git."
          recent-change
          hunk-list
          changes)
+
+    (when diff-lisp-debug
+      (message "a(%d) b(%d) => %s %s" a-length b-length a b))
 
     (dolist (hunk (diff-lisp-snakes-to-hunks snakes a-length b-length))
       (pcase-let* ((`(,x1 ,y1 ,x2 ,y2) hunk)
@@ -297,5 +308,6 @@ If no region is selected, `kill-ring' or clipboard is used instead."
            (t
             ;; show the diff output
             (diff-lisp-open-diff-output diff-output "*diff-lisp-output*"))))))))
+
 (provide 'diff-lisp)
 ;;; diff-lisp.el ends here
