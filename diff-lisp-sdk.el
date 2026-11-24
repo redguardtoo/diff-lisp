@@ -21,14 +21,14 @@
 
 ;;; Code:
 
-(defvar diff-lisp-ignore-whitespace t
-  "Ignore white space.")
+(defvar diff-lisp-ignore-whitespace nil
+  "Ignore all whitespace differences.
+Whitespace characters are treated as if they do not exist.")
 
 (defvar diff-lisp-ignore-whitespace-change t
-  "Ignore white space change.")
-
-(defvar diff-lisp-ignore-whitespace-at-eol t
-  "Ignore white space at end of line.")
+  "Ignore changes in the amount of whitespace.
+Consecutive whitespace characters are treated as a single space.
+Whitespace presence is still significant.")
 
 (defvar diff-lisp-debug nil "Debug flag.")
 
@@ -102,13 +102,6 @@ See xdl_hash_record_with_whitespace from git."
          ;; skip trailing spaces
          ((and diff-lisp-ignore-whitespace-change at-eol))
 
-         ((and diff-lisp-ignore-whitespace-at-eol (not at-eol))
-          ;; keep original white spaces between j..i
-          (diff-lisp-spaces-hash h j i))
-
-         ;; skip trailing spaces
-         ((and diff-lisp-ignore-whitespace-at-eol at-eol))
-
          ;; count all spaces
          (t
           (diff-lisp-spaces-hash h j i))))
@@ -126,8 +119,7 @@ See xdl_hash_record_with_whitespace from git."
          (rlt (make-vector len nil)))
     (cond
      ((or diff-lisp-ignore-whitespace
-          diff-lisp-ignore-whitespace-change
-          diff-lisp-ignore-whitespace-at-eol)
+          diff-lisp-ignore-whitespace-change)
       (dotimes (i len)
         (aset rlt i (diff-lisp-hash-record-with-whitespace (aref lines i)))))
      (t
