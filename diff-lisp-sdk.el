@@ -46,7 +46,7 @@ Whitespace presence is still significant.")
 
 (defsubst diff-lisp-hash (h c)
   "Update hash H with character code C."
-  (mod (+ h (* h 32) c) most-positive-fixnum))
+  (logand (+ h (* h 32) c) most-positive-fixnum))
 
 (defsubst diff-lisp-hash-record (s)
   "Return hash of string S.  See xdl_hash_record from git."
@@ -62,8 +62,8 @@ Whitespace presence is still significant.")
 (defmacro diff-lisp-spaces-hash (hash first last)
   "Get HASH of consecutive space characters with index of FIRST and LAST."
   `(while (<= ,first ,last)
-            (setq ,hash (diff-lisp-hash ,hash 32))
-            (setq ,first (1+ ,first))))
+     (setq ,hash (diff-lisp-hash ,hash 32))
+     (setq ,first (1+ ,first))))
 
 (defsubst diff-lisp-hash-record-with-whitespace (s)
   "Return hash of string S with whitespace rules.
