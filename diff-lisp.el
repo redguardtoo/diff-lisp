@@ -90,7 +90,6 @@ Numbers are zero-originated in the hunk."
               b-start v))
       (setq snakes (cdr snakes)))
 
-
     ;; manually add last change
     (when (or (> n a-start)
               (> m b-start))
@@ -101,7 +100,8 @@ Numbers are zero-originated in the hunk."
     ;; first hunk could be empty
     (when rlt
       (pcase-let ((`(,x ,y ,u ,v) (car rlt)))
-        (when (and (= u 0) (= v 0)) (setq rlt (cdr rlt)))))
+        (when (and (= u 0) (= v 0))
+          (setq rlt (cdr rlt)))))
     rlt))
 
 (defun diff-lisp-change-compact (hunks a b)
@@ -115,61 +115,85 @@ Similar to xdl_change_compact in git."
   (let ((count (- end start)))
     (format "%d,%d" (if (= count 0) start (1+ start)) count)))
 
-(defun diff-lisp-emit-diff (all-changes a b &optional diff-header)
-  "Output ALL-CHANGES between A and B.  DIFF-HEADER is output at the beginning.
+(defun diff-lisp--emit-line (prefix lines index no-final-newline)
+  "Emit line at INDEX in LINES with PREFIX.
+If NO-FINAL-NEWLINE is non-nil, emit the missing-newline marker
+after the last line."
+  (insert prefix (aref lines index) "\n")
+  (when (and no-final-newline
+             (= index (1- (length lines))))
+    (insert "\\ No newline at end of file\n")))
+
+(defun diff-lisp-emit-diff
+    (all-changes a b &optional diff-header a-no-final-newline b-no-final-newline)
+  "Output ALL-CHANGES between A and B.
+A and B are vectors of lines.
+DIFF-HEADER is output at the beginning.
+A-NO-FINAL-NEWLINE and B-NO-FINAL-NEWLINE indicate whether
+the corresponding input has no final newline.
 Similar to xdl_emit_diff in git."
   (with-temp-buffer
     (when all-changes
-      (insert (or diff-header (format "--- a\n+++ b\n"))))
-    (dolist (change all-changes)
-      ;; change: (x1 y1 x2 y2 hunks)
-      (let ((x1 (nth 0 change))
-            (y1 (nth 1 change))
-            (x2 (nth 2 change))
-            (y2 (nth 3 change))
-            (hunks (nth 4 change)))
-        ;; header
-        (insert "@@ -"
-                (diff-lisp--format-range x1 x2)
-                " +"
-                (diff-lisp--format-range y1 y2)
-                " @@\n")
-        ;; push dummy and reverse once
-        (setq hunks (nreverse (cons (list x2 y2 x2 y2) hunks)))
+      (insert (or diff-header (format "--- a\n+++ b\n")))
+      (dolist (change all-changes)
+        ;; change: (x1 y1 x2 y2 hunks)
+        (let ((x1 (nth 0 change))
+              (y1 (nth 1 change))
+              (x2 (nth 2 change))
+              (y2 (nth 3 change))
+              (hunks (nth 4 change)))
+          ;; header
+          (insert "@@ -"
+                  (diff-lisp--format-range x1 x2)
+                  " +"
+                  (diff-lisp--format-range y1 y2)
+                  " @@\n")
 
-        (let ((context-start x1)
-              context-end i)
-          (dolist (hunk hunks)
-            (let ((hx1 (nth 0 hunk))
-                  (hy1 (nth 1 hunk))
-                  (hx2 (nth 2 hunk))
-                  (hy2 (nth 3 hunk)))
-              ;; context
-              (setq i context-start
-                    context-end hx1)
-              (while (< i context-end)
-                (insert " " (aref a i) "\n")
-                (setq i (1+ i)))
-              (setq context-start hx2)
-              ;; deletions
-              (setq i hx1)
-              (while (< i hx2)
-                (insert "-" (aref a i) "\n")
-                (setq i (1+ i)))
-              ;; insertions
-              (setq i hy1)
-              (while (< i hy2)
-                (insert "+" (aref b i) "\n")
-                (setq i (1+ i))))))))
+          ;; append a dummy hunk to flush the trailing context
+          (setq hunks (nreverse (cons (list x2 y2 x2 y2) hunks)))
+
+          (let ((context-start x1)
+                context-end i)
+            (dolist (hunk hunks)
+              (let ((hx1 (nth 0 hunk))
+                    (hy1 (nth 1 hunk))
+                    (hx2 (nth 2 hunk))
+                    (hy2 (nth 3 hunk)))
+                ;; context
+                (setq i context-start
+                      context-end hx1)
+                (while (< i context-end)
+                  (diff-lisp--emit-line " " a i a-no-final-newline)
+                  (setq i (1+ i)))
+                (setq context-start hx2)
+
+                ;; deletions
+                (setq i hx1)
+                (while (< i hx2)
+                  (diff-lisp--emit-line "-" a i a-no-final-newline)
+                  (setq i (1+ i)))
+
+                ;; insertions
+                (setq i hy1)
+                (while (< i hy2)
+                  (diff-lisp--emit-line "+" b i b-no-final-newline)
+                  (setq i (1+ i)))))))))
     (buffer-string)))
 
 (defun diff-lisp--split-lines (str)
-  "Split STR into lines without a trailing empty element from a final newline."
-  (let* ((trimmed (if (and (> (length str) 0)
-                           (eq (aref str (1- (length str))) ?\n))
-                      (substring str 0 (1- (length str)))
-                    str)))
-    (split-string trimmed "\r?\n" nil)))
+  "Split STR into lines, preserving empty lines.
+Do not return an extra trailing empty line when STR ends with newline."
+  (if (string-empty-p str)
+      nil
+    (let ((lines (split-string str "\r?\n" nil)))
+      (if (eq (aref str (1- (length str))) ?\n)
+          (butlast lines)
+        lines))))
+
+(defun diff-lisp--no-final-newline-p (str)
+  "Return non-nil if STR is non-empty and does not end with newline."
+  (and (> (length str) 0)
+       (not (eq (aref str (1- (length str))) ?\n))))
 
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
@@ -180,10 +204,10 @@ Similar to xdl_emit_diff in git."
          (b (vconcat (diff-lisp--split-lines s2)))
          (a-length (length a))
          (b-length (length b))
-         (snakes (diff-lisp-myers-do-diff (diff-lisp-line-to-hash a)
-                                          a-length
-                                          (diff-lisp-line-to-hash b)
-                                          b-length))
+         (a-no-final-newline (diff-lisp--no-final-newline-p s1))
+         (b-no-final-newline (diff-lisp--no-final-newline-p s2))
+         (a-hashes (diff-lisp-line-to-hash a))
+         (b-hashes (diff-lisp-line-to-hash b))
          recent-change
          hunk-list
          changes)
@@ -191,33 +215,48 @@ Similar to xdl_emit_diff in git."
     (when diff-lisp-debug
       (message "a(%d) b(%d) => %s %s" a-length b-length a b))
 
-    (dolist (hunk (diff-lisp-snakes-to-hunks snakes a-length b-length))
-      (pcase-let* ((`(,x1 ,y1 ,x2 ,y2) hunk)
-                   (sx1 (max (- x1 diff-lisp-output-unified-context) 0))
-                   (sy1 (max (- y1 diff-lisp-output-unified-context) 0))
-                   (sx2 (min (+ x2 diff-lisp-output-unified-context) a-length))
-                   (sy2 (min (+ y2 diff-lisp-output-unified-context) b-length)))
-        (cond
-         ((and (setq recent-change (nth 0 changes))
-               (<= sx1 (nth 2 recent-change))
-               (<= sy1 (nth 3 recent-change)))
-          ;; Merge only when both A and B sides overlap/are adjacent,
-          ;; expanding the end bounds using `max'.
-          (setf (nth 2 (nth 0 changes)) (max (nth 2 recent-change) sx2))
-          (setf (nth 3 (nth 0 changes)) (max (nth 3 recent-change) sy2))
-          (setq hunk-list (nth 4 recent-change))
-          (push hunk hunk-list)
-          (setf (nth 4 (nth 0 changes)) hunk-list))
+    ;; Force the last lines to differ when their final-newline
+    ;; states differ. Negative values cannot be produced by the
+    ;; normal line hash function.
+    (when (and (> a-length 0)
+               (> b-length 0)
+               (not (eq a-no-final-newline b-no-final-newline)))
+      (aset a-hashes (1- a-length) -1)
+      (aset b-hashes (1- b-length) -2))
 
-         (t
-          (push (list sx1 sy1 sx2 sy2 (list hunk))
-                changes)))))
+    (let ((snakes (diff-lisp-myers-do-diff a-hashes
+                                          a-length
+                                          b-hashes
+                                          b-length)))
+      (dolist (hunk (diff-lisp-snakes-to-hunks snakes a-length b-length))
+        (pcase-let* ((`(,x1 ,y1 ,x2 ,y2) hunk)
+                     (sx1 (max (- x1 diff-lisp-output-unified-context) 0))
+                     (sy1 (max (- y1 diff-lisp-output-unified-context) 0))
+                     (sx2 (min (+ x2 diff-lisp-output-unified-context) a-length))
+                     (sy2 (min (+ y2 diff-lisp-output-unified-context) b-length)))
+          (cond
+           ((and (setq recent-change (nth 0 changes))
+                 (<= sx1 (nth 2 recent-change))
+                 (<= sy1 (nth 3 recent-change)))
+            ;; Merge only when both A and B sides overlap/are adjacent,
+            ;; expanding the end bounds using `max'.
+            (setf (nth 2 (nth 0 changes)) (max (nth 2 recent-change) sx2))
+            (setf (nth 3 (nth 0 changes)) (max (nth 3 recent-change) sy2))
+            (setq hunk-list (nth 4 recent-change))
+            (push hunk hunk-list)
+            (setf (nth 4 (nth 0 changes)) hunk-list))
 
-    ;; compact changes
-    (setq changes (diff-lisp-change-compact (nreverse changes) a b))
+           (t
+            (push (list sx1 sy1 sx2 sy2 (list hunk))
+                  changes)))))
 
-    ;; output all changes
-    (diff-lisp-emit-diff changes a b diff-header)))
+      ;; compact changes
+      (setq changes (diff-lisp-change-compact (nreverse changes) a b))
+
+      ;; output all changes
+      (diff-lisp-emit-diff changes a b diff-header
+                           a-no-final-newline
+                           b-no-final-newline))))
 
 ;;;###autoload
 (defun diff-lisp-diff-files (f1 f2)
@@ -228,7 +267,7 @@ Similar to xdl_emit_diff in git."
 
 (defun diff-lisp-format-region-boundary (b e)
   "Make sure lines are selected and B is less than E."
-  ; rotate b e
+  ;; rotate b and e
   (let ((tmp b))
     (when (> b e)
       (setq b e
