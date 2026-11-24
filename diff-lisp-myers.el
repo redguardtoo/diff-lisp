@@ -171,39 +171,54 @@ Second sequence is subsequence of B, which starts from B-START with length M."
 
     rlt))
 
+
 (defun diff-lisp-myers--find-d1-snake (a a-start n b b-start m x u y v)
-  "Find snake for a subproblem with edit distance D = 1.
+  "Find snakes for a subproblem with edit distance D = 1.
 A and B are sequence/vector representations; subproblem starts at
 A-START (length N) and B-START (length M), with middle-snake
 coordinates X, Y, U, V in local coordinates."
-  (if (and (= x u) (= y v))
-      ;; When middle snake degenerates to a point (edit distance = 1),
-      ;; find the longest contiguous matching run within [a-start, a-start+n)
-      ;; and [b-start, b-start+m) rather than assuming offset (0, 0).
-      (let ((best-len 0)
-            (best-a a-start)
-            (best-b b-start)
-            (i 0))
-        (while (< i n)
-          (let ((j 0))
-            (while (< j m)
-              (let ((pa (+ a-start i))
-                    (pb (+ b-start j))
-                    (match-len 0))
-                (while (and (< (+ pa match-len) (+ a-start n))
-                            (< (+ pb match-len) (+ b-start m))
-                            (diff-lisp-string-equal a b
-                                                    (+ pa match-len)
-                                                    (+ pb match-len)))
-                  (setq match-len (1+ match-len)))
-                (when (> match-len best-len)
-                  (setq best-len match-len
-                        best-a pa
-                        best-b pb)))
-              (setq j (1+ j))))
-          (setq i (1+ i)))
-        (list best-a best-b (+ best-a best-len) (+ best-b best-len)))
-    (list (+ x a-start) (+ y b-start) (+ u a-start) (+ v b-start))))
+  (let ((prefix-len 0)
+        (suffix-len 0)
+        snakes)
+
+    ;; Find common prefix before the middle snake.
+    (while (and (< prefix-len x)
+                (< prefix-len y)
+                (diff-lisp-string-equal
+                 a b
+                 (+ a-start prefix-len)
+                 (+ b-start prefix-len)))
+      (setq prefix-len (1+ prefix-len)))
+
+    (when (> prefix-len 0)
+      (push (list a-start b-start
+                  (+ a-start prefix-len)
+                  (+ b-start prefix-len))
+            snakes))
+
+    ;; Collect the middle snake.
+    (when (or (/= x u) (/= y v))
+      (push (list (+ a-start x) (+ b-start y)
+                  (+ a-start u) (+ b-start v))
+            snakes))
+
+    ;; Find common suffix after the middle snake.
+    (while (and (< suffix-len (- n u))
+                (< suffix-len (- m v))
+                (diff-lisp-string-equal
+                 a b
+                 (- (+ a-start n) 1 suffix-len)
+                 (- (+ b-start m) 1 suffix-len)))
+      (setq suffix-len (1+ suffix-len)))
+
+    (when (> suffix-len 0)
+      (push (list (- (+ a-start n) suffix-len)
+                  (- (+ b-start m) suffix-len)
+                  (+ a-start n)
+                  (+ b-start m))
+            snakes))
+
+    (nreverse snakes)))
 
 (defun diff-lisp-myers-find-all-snakes (a a-start n b b-start m)
   "Find all snakes from two sequences.
@@ -230,9 +245,9 @@ Second sequence is subsequence of B, which starts from B-START with length M."
               (push snake all-snakes)))
 
            (t
-            (setq snake (diff-lisp-myers--find-d1-snake a a-start n b b-start m x u y v))
-            (when (diff-lisp--not-empty-snake-p snake)
-              (push snake all-snakes))))))
+            (setq all-snakes
+                  (nconc all-snakes
+                         (diff-lisp-myers--find-d1-snake a a-start n b b-start m x u y v)))))))
       all-snakes)))
 
 
@@ -243,7 +258,6 @@ Second sequence is subsequence of B, which starts from B-START with length M."
   (if (or (/= (nth 0 snake) (nth 2 snake))
           (/= (nth 1 snake) (nth 3 snake)))
       snake))
-
 
 (defun diff-lisp-myers-do-diff (a n b m)
   "Diff sequence A with length N and sequence B with length M.

@@ -1,12 +1,12 @@
 ;;; diff-lisp.el --- diff files&strings in pure Lisp -*- lexical-binding: t -*-
 
-;; Copyright (C) 2021-2025 Chen Bin
+;; Copyright (C) 2021-2026 Chen Bin
 ;;
-;; Version: 0.2.1
+;; Version: 0.3.0
 ;; Keywords: convenience patch diff vc
-;; Author: Chen Bin <chenbin DOT sh AT gmail DOT com>
+;; Author: Chen Bin
 ;; URL: https://github.com/redguardtoo/diff-lisp
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "29.1"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -115,23 +115,14 @@ Similar to xdl_change_compact in git."
   (let ((count (- end start)))
     (format "%d,%d" (if (= count 0) start (1+ start)) count)))
 
-(defun diff-lisp--emit-line (prefix lines index no-final-newline)
-  "Emit line at INDEX in LINES with PREFIX.
-If NO-FINAL-NEWLINE is non-nil, emit the missing-newline marker
-after the last line."
-  (insert prefix (aref lines index) "\n")
-  (when (and no-final-newline
-             (= index (1- (length lines))))
-    (insert "\\ No newline at end of file\n")))
+(defun diff-lisp--emit-line (prefix lines index)
+  "Emit line at INDEX in LINES with PREFIX."
+  (insert prefix (aref lines index) "\n"))
 
 (defun diff-lisp-emit-diff
-    (all-changes a b &optional diff-header a-no-final-newline b-no-final-newline)
-  "Output ALL-CHANGES between A and B.
-A and B are vectors of lines.
-DIFF-HEADER is output at the beginning.
-A-NO-FINAL-NEWLINE and B-NO-FINAL-NEWLINE indicate whether
-the corresponding input has no final newline.
-Similar to xdl_emit_diff in git."
+    (all-changes a b &optional diff-header)
+  "Output ALL-CHANGES between A and B.  A and B are vectors of lines.
+DIFF-HEADER is output at the beginning.  Similar to xdl_emit_diff in git."
   (with-temp-buffer
     (when all-changes
       (insert (or diff-header (format "--- a\n+++ b\n")))
@@ -163,20 +154,20 @@ Similar to xdl_emit_diff in git."
                 (setq i context-start
                       context-end hx1)
                 (while (< i context-end)
-                  (diff-lisp--emit-line " " a i a-no-final-newline)
+                  (diff-lisp--emit-line " " a i)
                   (setq i (1+ i)))
                 (setq context-start hx2)
 
                 ;; deletions
                 (setq i hx1)
                 (while (< i hx2)
-                  (diff-lisp--emit-line "-" a i a-no-final-newline)
+                  (diff-lisp--emit-line "-" a i)
                   (setq i (1+ i)))
 
                 ;; insertions
                 (setq i hy1)
                 (while (< i hy2)
-                  (diff-lisp--emit-line "+" b i b-no-final-newline)
+                  (diff-lisp--emit-line "+" b i)
                   (setq i (1+ i)))))))))
     (buffer-string)))
 
@@ -190,11 +181,6 @@ Do not return an extra trailing empty line when STR ends with newline."
           (butlast lines)
         lines))))
 
-(defun diff-lisp--no-final-newline-p (str)
-  "Return non-nil if STR is non-empty and does not end with newline."
-  (and (> (length str) 0)
-       (not (eq (aref str (1- (length str))) ?\n))))
-
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
   "Diff string S1 and string S2.  DIFF-HEADER is output at the beginning."
@@ -204,8 +190,6 @@ Do not return an extra trailing empty line when STR ends with newline."
          (b (vconcat (diff-lisp--split-lines s2)))
          (a-length (length a))
          (b-length (length b))
-         (a-no-final-newline (diff-lisp--no-final-newline-p s1))
-         (b-no-final-newline (diff-lisp--no-final-newline-p s2))
          (a-hashes (diff-lisp-line-to-hash a))
          (b-hashes (diff-lisp-line-to-hash b))
          recent-change
@@ -215,19 +199,10 @@ Do not return an extra trailing empty line when STR ends with newline."
     (when diff-lisp-debug
       (message "a(%d) b(%d) => %s %s" a-length b-length a b))
 
-    ;; Force the last lines to differ when their final-newline
-    ;; states differ. Negative values cannot be produced by the
-    ;; normal line hash function.
-    (when (and (> a-length 0)
-               (> b-length 0)
-               (not (eq a-no-final-newline b-no-final-newline)))
-      (aset a-hashes (1- a-length) -1)
-      (aset b-hashes (1- b-length) -2))
-
     (let ((snakes (diff-lisp-myers-do-diff a-hashes
-                                          a-length
-                                          b-hashes
-                                          b-length)))
+                                           a-length
+                                           b-hashes
+                                           b-length)))
       (dolist (hunk (diff-lisp-snakes-to-hunks snakes a-length b-length))
         (pcase-let* ((`(,x1 ,y1 ,x2 ,y2) hunk)
                      (sx1 (max (- x1 diff-lisp-output-unified-context) 0))
@@ -254,9 +229,7 @@ Do not return an extra trailing empty line when STR ends with newline."
       (setq changes (diff-lisp-change-compact (nreverse changes) a b))
 
       ;; output all changes
-      (diff-lisp-emit-diff changes a b diff-header
-                           a-no-final-newline
-                           b-no-final-newline))))
+      (diff-lisp-emit-diff changes a b diff-header))))
 
 ;;;###autoload
 (defun diff-lisp-diff-files (f1 f2)

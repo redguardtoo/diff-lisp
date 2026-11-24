@@ -1,6 +1,6 @@
 ;; diff-lisp-tests.el --- unit tests for diff-lisp -*- coding: utf-8 -*-
 
-;; Author: Chen Bin <chenbin DOT sh AT gmail DOT com>
+;; Author: Chen Bin
 
 ;;; License:
 
@@ -299,6 +299,40 @@ must not treat mismatched leading elements as a snake."
     ;; Only one "@@ ... @@" hunk header is emitted when two nearby edits merge
     (should (= (length (split-string diff "^@@.*@@$" t)) 2))
     (should (string-match-p "@@ -1,10 \\+1,10 @@" diff))))
+
+
+(ert-deftest diff-lisp-test-ignore-final-newline ()
+  (should
+   (equal (diff-lisp-diff-strings "abc\ndef" "abc\ndef\n") ""))
+  (should
+   (equal (diff-lisp-diff-strings "abc" "abc\n") "")))
+
+(ert-deftest diff-lisp-myers-test-replace-one-character ()
+  (should
+   (equal
+    (diff-lisp-myers-do-diff
+     (string-to-vector "abc") 3
+     (string-to-vector "axc") 3)
+    '((0 0 1 1)
+      (2 2 3 3)))))
+
+(ert-deftest diff-lisp-myers-test-insert-in-middle ()
+  (should
+   (equal
+    (diff-lisp-myers-do-diff
+     (string-to-vector "abc") 3
+     (string-to-vector "axbc") 4)
+    '((0 0 1 1)
+      (1 2 3 4)))))
+
+(ert-deftest diff-lisp-myers-test-delete-in-middle ()
+  (should
+   (equal
+    (diff-lisp-myers-do-diff
+     (string-to-vector "abc") 3
+     (string-to-vector "ac") 2)
+    '((0 0 1 1)
+      (2 1 3 2)))))
 
 (ert-run-tests-batch-and-exit)
 ;;; diff-lisp-tests.el ends here
