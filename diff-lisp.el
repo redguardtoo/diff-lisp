@@ -110,6 +110,11 @@ Similar to xdl_change_compact in git."
   ;; TODO
   hunks)
 
+(defun diff-lisp--format-range (start end)
+  "Format unified diff range from START to END."
+  (let ((count (- end start)))
+    (format "%d,%d" (if (= count 0) start (1+ start)) count)))
+
 (defun diff-lisp-emit-diff (all-changes a b &optional diff-header)
   "Output ALL-CHANGES between A and B.  DIFF-HEADER is output at the beginning.
 Similar to xdl_emit_diff in git."
@@ -125,8 +130,9 @@ Similar to xdl_emit_diff in git."
             (hunks (nth 4 change)))
         ;; header
         (insert "@@ -"
-                (number-to-string (1+ x1)) "," (number-to-string (- x2 x1))
-                " +" (number-to-string (1+ y1)) "," (number-to-string (- y2 y1))
+                (diff-lisp--format-range x1 x2)
+                " +"
+                (diff-lisp--format-range y1 y2)
                 " @@\n")
         ;; push dummy and reverse once
         (setq hunks (nreverse (cons (list x2 y2 x2 y2) hunks)))
