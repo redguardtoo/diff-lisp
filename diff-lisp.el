@@ -163,7 +163,7 @@ Similar to xdl_emit_diff in git."
                            (eq (aref str (1- (length str))) ?\n))
                       (substring str 0 (1- (length str)))
                     str)))
-    (split-string trimmed "\n" nil)))
+    (split-string trimmed "\r?\n" nil)))
 
 ;;;###autoload
 (defun diff-lisp-diff-strings (s1 s2 &optional diff-header)
