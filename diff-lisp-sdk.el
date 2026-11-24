@@ -53,8 +53,7 @@ Whitespace presence is still significant.")
   (let ((h 5381)
         (len (length s)))
     (dotimes (i len h)
-      (setq h (diff-lisp-hash h (aref s i))))
-  h))
+      (setq h (diff-lisp-hash h (aref s i))))))
 
 (defsubst diff-lisp-whitespace-p (c)
   "Test if C is a whitespace character (space or tab)."
